@@ -1,0 +1,177 @@
+/* style.css — Sistema de Horarios Soporte Técnico */
+
+:root {
+  --color-t1: #3B82F6;
+  --color-t2: #10B981;
+  --color-dom: #8B5CF6;
+  --color-desc: #6B7280;
+  --color-eps: #EF4444;
+  --color-vac: #F59E0B;
+}
+
+body {
+  background-color: #F8FAFC;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main { flex: 1; }
+
+/* ── KPI Cards ────────────────────────────────────────── */
+.kpi-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+}
+.kpi-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Schedule Table ───────────────────────────────────── */
+.schedule-table-container {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.schedule-table {
+  font-size: 0.78rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.schedule-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1e293b;
+  color: white;
+}
+
+.schedule-table thead tr:nth-child(2) th,
+.schedule-table thead tr:nth-child(3) th {
+  background: #f1f5f9;
+  color: #475569;
+  top: 48px;
+}
+
+.schedule-table thead tr:nth-child(3) th {
+  top: 82px;
+}
+
+.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #ffffff;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+  border-right: 2px solid #e2e8f0 !important;
+}
+
+.schedule-table thead .sticky-col {
+  z-index: 3;
+  background: #1e293b;
+}
+
+.schedule-table thead tr:nth-child(2) .sticky-col,
+.schedule-table thead tr:nth-child(3) .sticky-col {
+  background: #f1f5f9;
+}
+
+.schedule-cell {
+  transition: background-color 0.1s;
+  min-width: 68px;
+}
+
+.schedule-cell:hover {
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+/* ── Badges ───────────────────────────────────────────── */
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* ── Cards ────────────────────────────────────────────── */
+.card {
+  border-radius: 12px;
+}
+.card-header {
+  border-radius: 12px 12px 0 0 !important;
+  padding: 0.75rem 1rem;
+}
+
+/* ── Navbar ───────────────────────────────────────────── */
+.navbar {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.navbar-brand {
+  font-size: 1.1rem;
+  letter-spacing: -0.3px;
+}
+
+/* ── Table improvements ───────────────────────────────── */
+.table > :not(caption) > * > * {
+  padding: 0.4rem 0.6rem;
+}
+.table-hover > tbody > tr:hover > * {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+/* ── Footer ───────────────────────────────────────────── */
+.footer {
+  font-size: 0.8rem;
+}
+
+/* ── Alerts ───────────────────────────────────────────── */
+.alert {
+  border-radius: 10px;
+  border: none;
+}
+
+/* ── Modal ────────────────────────────────────────────── */
+.modal-content {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+.modal-header {
+  border-radius: 16px 16px 0 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 768px) {
+  .schedule-table {
+    font-size: 0.7rem;
+  }
+  .kpi-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+/* ── Color helpers ────────────────────────────────────── */
+.text-purple { color: #8B5CF6; }
+.bg-purple   { background-color: #8B5CF6; }
+
+/* ── Button micro ─────────────────────────────────────── */
+.btn-xs {
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+}
+
+/* ── Spinner de generación ────────────────────────────── */
+.generating {
+  opacity: 0.6;
+  pointer-events: none;
+}
