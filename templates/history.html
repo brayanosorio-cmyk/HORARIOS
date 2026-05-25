@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Historial{% endblock %}
+
+{% block content %}
+<div class="row mt-3 mb-3 align-items-center">
+  <div class="col">
+    <h4 class="mb-0"><i class="bi bi-clock-history me-2 text-secondary"></i>Historial de Rotaciones</h4>
+    <small class="text-muted">Acumulado por técnico — Base para el algoritmo de equidad</small>
+  </div>
+</div>
+
+<!-- Tabla de equidad acumulada -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <h6 class="mb-0">Equidad Acumulada por Técnico</h6>
+    <small class="text-muted">Ordenado por mayor carga T2 → menor rotación</small>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 small">
+        <thead class="table-dark">
+          <tr>
+            <th>Técnico</th>
+            <th class="text-center text-success">Semanas T2</th>
+            <th class="text-center text-warning">Semanas Tickets</th>
+            <th class="text-center" style="color:#8B5CF6">Dominicales</th>
+            <th class="text-center">Último Turno</th>
+            <th class="text-center">Novedades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tech in technicians | sort(attribute='name') %}
+            {% set rows = hist_by_tech.get(tech.id, []) %}
+            {% set last = rows[0] if rows else None %}
+            <tr>
+              <td class="fw-semibold">
+                {{ tech.name }}
+                {% if tech.fixed_shift %}
+                  <span class="badge bg-secondary ms-1" style="font-size:0.65rem">
+                    FIJO {{ tech.fixed_shift }}
+                  </span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% if last %}
+                  <span class="badge bg-success">{{ last.total_t2_weeks }}</span>
+                {% else %}<span class="text-muted">0</span>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if last %}
+                  <span class="badge bg-warning text-dark">{{ last.total_ticket_weeks }}</span>
+                {% else %}<span class="text-muted">0</span>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if last %}
+                  <span class="badge text-white" style="background-color:#8B5CF6">
+                    {{ last.total_sundays }}
+                  </span>
+                {% else %}<span class="text-muted">0</span>{% endif %}
+              </td>
+              <td class="text-center">
+                {% if last %}
+                  <span class="badge" style="background-color: {{ shift_colors.get(last.shift_assigned, '#9CA3AF') }}">
+                    {{ last.shift_assigned or '—' }}
+                  </span>
+                  <small class="text-muted d-block">{{ last.week_start | date_fmt }}</small>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                {% set nov_count = rows | selectattr('had_novelty') | list | length %}
+                {% if nov_count > 0 %}
+                  <span class="badge bg-danger">{{ nov_count }}</span>
+                {% else %}
+                  <span class="text-muted">0</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Chart de equidad -->
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 text-success">Distribución Semanas T2</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartT2Equity" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <h6 class="mb-0 text-warning">Distribución Semanas Tickets</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="chartTicketEquity" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Preparar datos para gráficas de equidad
+const techNames = [
+  {% for tech in technicians | sort(attribute='name') %}
+    "{{ tech.name.split(' ')[0] + ' ' + tech.name.split(' ')[-1] }}",
+  {% endfor %}
+];
+
+const t2Counts = [
+  {% for tech in technicians | sort(attribute='name') %}
+    {% set rows = hist_by_tech.get(tech.id, []) %}
+    {{ rows[0].total_t2_weeks if rows else 0 }},
+  {% endfor %}
+];
+
+const ticketCounts = [
+  {% for tech in technicians | sort(attribute='name') %}
+    {% set rows = hist_by_tech.get(tech.id, []) %}
+    {{ rows[0].total_ticket_weeks if rows else 0 }},
+  {% endfor %}
+];
+
+// Gráfica T2
+new Chart(document.getElementById('chartT2Equity'), {
+  type: 'bar',
+  data: {
+    labels: techNames,
+    datasets: [{
+      label: 'Semanas en T2',
+      data: t2Counts,
+      backgroundColor: '#10B98166',
+      borderColor: '#10B981',
+      borderWidth: 1,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+
+// Gráfica Tickets
+new Chart(document.getElementById('chartTicketEquity'), {
+  type: 'bar',
+  data: {
+    labels: techNames,
+    datasets: [{
+      label: 'Semanas en Tickets',
+      data: ticketCounts,
+      backgroundColor: '#F59E0B66',
+      borderColor: '#F59E0B',
+      borderWidth: 1,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+  }
+});
+</script>
+{% endblock %}

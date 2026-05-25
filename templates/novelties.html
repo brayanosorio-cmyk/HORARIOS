@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Novedades{% endblock %}
+
+{% block content %}
+<div class="row mt-3 mb-3 align-items-center">
+  <div class="col">
+    <h4 class="mb-0"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Novedades Diarias</h4>
+    <small class="text-muted">Semana: {{ week_start | date_fmt }} — {{ (week_start + timedelta(days=6)) | date_fmt }}</small>
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addNoveltyModal">
+      <i class="bi bi-plus-circle me-1"></i>Registrar Novedad
+    </button>
+  </div>
+</div>
+
+<!-- Tabla de novedades de la semana -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white">
+    <h6 class="mb-0">Novedades de la Semana</h6>
+  </div>
+  <div class="card-body p-0">
+    {% if week_novelties %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 small">
+          <thead class="table-light">
+            <tr>
+              <th>Técnico</th>
+              <th>Fecha</th>
+              <th>Día</th>
+              <th>Tipo</th>
+              <th>Notas</th>
+              <th>Registrado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for nov in week_novelties %}
+              <tr>
+                <td class="fw-semibold">{{ nov.technician.name }}</td>
+                <td>{{ nov.date | date_fmt }}</td>
+                <td class="text-muted">{{ nov.date | weekday_es }}</td>
+                <td>
+                  <span class="badge" style="background-color: {{ nov.color }}">
+                    {{ nov.novelty_type }}
+                  </span>
+                </td>
+                <td class="text-muted">{{ nov.notes or '—' }}</td>
+                <td class="text-muted">{{ nov.registered_at.strftime('%d/%m %H:%M') }}</td>
+                <td>
+                  <form method="post" action="{{ url_for('delete_novelty', nov_id=nov.id) }}"
+                        onsubmit="return confirm('¿Eliminar esta novedad?')">
+                    <button class="btn btn-xs btn-outline-danger btn-sm py-0">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-center py-4 text-muted">
+        <i class="bi bi-check-circle-fill fs-1 text-success d-block mb-2"></i>
+        Sin novedades registradas esta semana.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Resumen visual por técnico -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white">
+    <h6 class="mb-0">Técnicos con Novedades Activas</h6>
+  </div>
+  <div class="card-body">
+    {% set techs_with_nov = week_novelties | map(attribute='technician') | unique(attribute='id') | list %}
+    {% if techs_with_nov %}
+      <div class="d-flex flex-wrap gap-2">
+        {% for tech in techs_with_nov %}
+          <div class="card border-warning" style="min-width:200px">
+            <div class="card-body p-2">
+              <div class="fw-bold small">{{ tech.name }}</div>
+              {% for nov in week_novelties if nov.technician_id == tech.id %}
+                <span class="badge me-1" style="background-color: {{ nov.color }}">
+                  {{ nov.date | weekday_es }} {{ nov.novelty_type }}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">Ningún técnico con novedad esta semana.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- MODAL: Registrar Novedad -->
+<div class="modal fade" id="addNoveltyModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('novelties') }}">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+            Registrar Novedad
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Técnico *</label>
+            <select name="technician_id" class="form-select" required>
+              <option value="">— Seleccionar técnico —</option>
+              {% for tech in technicians %}
+                <option value="{{ tech.id }}">{{ tech.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Fecha *</label>
+            <input type="date" name="date" class="form-control"
+                   value="{{ today.isoformat() }}" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tipo de Novedad *</label>
+            <div class="d-flex flex-wrap gap-2">
+              {% set type_labels = {
+                'EPS': ('EPS / Médico', '#EF4444'),
+                'V': ('Vacaciones', '#F59E0B'),
+                'PERM': ('Permiso', '#F97316'),
+                'CAL': ('Calamidad', '#DC2626'),
+                'INCAP': ('Incapacidad', '#B91C1C'),
+                'OTRO': ('Otro', '#9CA3AF'),
+              } %}
+              {% for code, (label, color) in type_labels.items() %}
+                <div class="form-check">
+                  <input class="form-check-input" type="radio"
+                         name="novelty_type" id="nt_{{ code }}"
+                         value="{{ code }}" required>
+                  <label class="form-check-label" for="nt_{{ code }}">
+                    <span class="badge" style="background-color:{{ color }}">{{ label }}</span>
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Notas (opcional)</label>
+            <input type="text" name="notes" class="form-control"
+                   placeholder="Ej: Cita médica urgente, autorizado por supervisor">
+          </div>
+
+          <div class="alert alert-info py-2 small">
+            <i class="bi bi-info-circle me-1"></i>
+            El sistema buscará reemplazo automático si la novedad afecta la cobertura T2 mínima.
+          </div>
+
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning">
+            <i class="bi bi-check-circle me-1"></i>Registrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

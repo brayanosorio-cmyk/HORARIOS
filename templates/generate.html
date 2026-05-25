@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Generar Semana{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-6">
+    <div class="card border-0 shadow">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-magic me-2"></i>Generar Horario Semanal</h5>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('generate') }}">
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold fs-6">Seleccionar semana a generar</label>
+            <input type="date" name="week_start" class="form-control form-control-lg"
+                   value="{{ next_monday.isoformat() }}" required>
+            <div class="form-text">Se ajustará automáticamente al lunes de esa semana.</div>
+          </div>
+
+          <!-- Info del algoritmo -->
+          <div class="alert alert-info small">
+            <h6 class="alert-heading"><i class="bi bi-info-circle me-1"></i>El algoritmo hará:</h6>
+            <ul class="mb-0">
+              <li>Asignará técnicos fijos a sus turnos (T1/T2)</li>
+              <li>Garantizará mínimo <strong>6 técnicos en T2</strong> cada día</li>
+              <li>Seleccionará <strong>5 técnicos de tickets</strong> (rotación equitativa)</li>
+              <li>Distribuirá dominicales/festivos sin repetir consecutivos</li>
+              <li>Registrará historial para equidad futura</li>
+            </ul>
+          </div>
+
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="forceCheck" name="force" value="true">
+              <label class="form-check-label" for="forceCheck">
+                <strong>Forzar regeneración</strong>
+                <small class="text-muted d-block">Si la semana ya fue generada, la elimina y regenera</small>
+              </label>
+            </div>
+          </div>
+
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-magic me-2"></i>Generar Horario
+            </button>
+            <a href="{{ url_for('schedule') }}" class="btn btn-outline-secondary">
+              Ver horario actual
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notas legales -->
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-body small">
+        <h6 class="text-muted"><i class="bi bi-shield-check me-1"></i>Cumplimiento Laboral Colombia</h6>
+        <p class="mb-1">Jornada actual: <strong>44 horas semanales</strong> (Ley 2101/2021)</p>
+        <p class="mb-1">Desde julio 2026: <strong>42 horas semanales</strong></p>
+        <p class="mb-0 text-muted">T1 L-V: 8h | T2 L-V: 8h | T1 Sáb: 5h | T2 Sáb: 7.5h</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
