@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: soporte-turnos
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    # Disco persistente: SQLite no se borra al reiniciar (500MB gratis)
+    disk:
+      name: db-disk
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:////data/turnos_soporte.db
