@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Admin{% endblock %}
+{% block title_display %}Panel Admin{% endblock %}
+
+{% block content %}
+<!-- STATS ROW -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-icon"><i class="bi bi-people-fill"></i></div>
+      <div class="kpi-value">{{ total_techs }}</div>
+      <div class="kpi-label">Tecnicos activos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card kpi-gray">
+      <div class="kpi-icon"><i class="bi bi-person-x"></i></div>
+      <div class="kpi-value">{{ inactive_techs }}</div>
+      <div class="kpi-label">Inactivos</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card kpi-purple">
+      <div class="kpi-icon"><i class="bi bi-calendar-week"></i></div>
+      <div class="kpi-value">{{ total_weeks }}</div>
+      <div class="kpi-label">Semanas ({{ locked_weeks }} bloqueadas)</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+      <div class="kpi-value">{{ total_novelties }}</div>
+      <div class="kpi-label">Novedades totales</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- CONFIG -->
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <span class="fw-semibold small"><i class="bi bi-gear me-2 text-primary"></i>Configuracion actual</span>
+      </div>
+      <div class="list-group list-group-flush small">
+        {% for cfg in configs %}
+          <div class="list-group-item d-flex justify-content-between">
+            <span class="text-muted">{{ cfg.label or cfg.key }}</span>
+            <strong>{{ cfg.value }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="card-footer bg-white">
+        <a href="{{ url_for('config_view') }}" class="btn btn-sm btn-outline-primary w-100">
+          <i class="bi bi-pencil me-1"></i>Editar configuracion
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick links -->
+    <div class="card border-0 shadow-sm mt-3">
+      <div class="card-header bg-white">
+        <span class="fw-semibold small"><i class="bi bi-lightning me-2 text-warning"></i>Accesos rapidos</span>
+      </div>
+      <div class="card-body d-grid gap-2">
+        <a href="{{ url_for('technicians') }}" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-people me-1"></i>Gestionar tecnicos
+        </a>
+        <a href="{{ url_for('holidays') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-calendar-heart me-1"></i>Festivos ({{ total_holidays }})
+        </a>
+        <a href="{{ url_for('audit') }}" class="btn btn-outline-dark btn-sm">
+          <i class="bi bi-clock-history me-1"></i>Ver auditoria completa
+        </a>
+        <a href="{{ url_for('history') }}" class="btn btn-outline-success btn-sm">
+          <i class="bi bi-bar-chart-line me-1"></i>Equidad de turnos
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECENT AUDIT -->
+  <div class="col-md-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white">
+        <span class="fw-semibold small"><i class="bi bi-clock-history me-2 text-primary"></i>Actividad reciente</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0 small">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha</th><th>Entidad</th><th>Accion</th><th>Descripcion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in recent_audit %}
+                <tr>
+                  <td class="text-muted text-nowrap">{{ log.timestamp.strftime('%d/%m %H:%M') }}</td>
+                  <td><span class="badge bg-secondary">{{ log.entity }}</span></td>
+                  <td>
+                    <span class="badge bg-{% if log.action in ('create','generate','activated','lock') %}success{% elif log.action in ('delete','deactivated') %}danger{% elif log.action == 'update' %}primary{% else %}secondary{% endif %}">
+                      {{ log.action }}
+                    </span>
+                  </td>
+                  <td class="text-truncate" style="max-width:300px">{{ log.description }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="4" class="text-center text-muted py-3">Sin actividad</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

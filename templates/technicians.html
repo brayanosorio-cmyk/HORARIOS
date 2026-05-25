@@ -1,151 +1,68 @@
 {% extends "base.html" %}
-{% block title %}Técnicos{% endblock %}
+{% block title %}Tecnicos{% endblock %}
+{% block title_display %}Tecnicos{% endblock %}
 
 {% block content %}
-<div class="row mt-3 mb-3 align-items-center">
-  <div class="col">
-    <h4 class="mb-0"><i class="bi bi-people me-2 text-primary"></i>Gestión de Técnicos</h4>
-    <small class="text-muted">{{ technicians | selectattr('is_active') | list | length }} activos</small>
-  </div>
-  <div class="col-auto">
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTechModal">
-      <i class="bi bi-person-plus me-1"></i>Agregar Técnico
-    </button>
-  </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <span class="text-muted small">{{ technicians | length }} tecnicos en total</span>
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTechModal">
+    <i class="bi bi-person-plus me-1"></i>Agregar tecnico
+  </button>
 </div>
 
-<!-- Resumen rápido -->
-<div class="row g-3 mb-3">
-  {% set fixed_t2 = technicians | selectattr('fixed_shift', 'equalto', 'T2') | list | length %}
-  {% set fixed_t1 = technicians | selectattr('fixed_shift', 'equalto', 'T1') | list | length %}
-  {% set tickets = technicians | selectattr('tickets_only') | list | length %}
-  {% set no_sun = technicians | selectattr('no_sundays') | list | length %}
-  <div class="col-6 col-md-3">
-    <div class="card border-start border-success border-3 shadow-sm">
-      <div class="card-body py-2 text-center">
-        <h4 class="mb-0 text-success">{{ fixed_t2 }}</h4><small>Fijos T2</small>
-      </div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card border-start border-primary border-3 shadow-sm">
-      <div class="card-body py-2 text-center">
-        <h4 class="mb-0 text-primary">{{ fixed_t1 }}</h4><small>Fijos T1</small>
-      </div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card border-start border-warning border-3 shadow-sm">
-      <div class="card-body py-2 text-center">
-        <h4 class="mb-0 text-warning">{{ tickets }}</h4><small>Solo Tickets</small>
-      </div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card border-start border-secondary border-3 shadow-sm">
-      <div class="card-body py-2 text-center">
-        <h4 class="mb-0 text-secondary">{{ no_sun }}</h4><small>Sin Dominicales</small>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Tabla de técnicos -->
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
-      <table class="table table-hover mb-0 small">
+      <table class="table table-hover table-sm mb-0 small">
         <thead class="table-dark">
           <tr>
-            <th>#</th>
-            <th>Nombre</th>
-            <th>Código</th>
-            <th>Turno Fijo</th>
-            <th>Solo Tickets</th>
-            <th>Sin Domingos</th>
-            <th>T2 Semanas</th>
-            <th>Ticket Sems</th>
-            <th>Domingos</th>
-            <th>Estado</th>
-            <th></th>
+            <th>Nombre</th><th>Codigo</th><th>Supervisor</th>
+            <th>Turno fijo</th><th>Flags</th><th>Estado</th><th></th>
           </tr>
         </thead>
         <tbody>
           {% for tech in technicians %}
-            <tr class="{{ 'table-light text-muted' if not tech.is_active }}">
-              <td>{{ loop.index }}</td>
+            <tr class="{{ '' if tech.is_active else 'table-secondary text-muted' }}">
               <td class="fw-semibold">{{ tech.name }}</td>
-              <td class="text-muted">{{ tech.code or '—' }}</td>
+              <td>{{ tech.code or '--' }}</td>
+              <td>{{ tech.supervisor or '--' }}</td>
               <td>
-                {% if tech.fixed_shift == 'T2' %}
-                  <span class="badge" style="background-color:#10B981">Fijo T2</span>
-                {% elif tech.fixed_shift == 'T1' %}
-                  <span class="badge" style="background-color:#3B82F6">Fijo T1</span>
-                {% else %}
-                  <span class="text-muted">Rotación</span>
-                {% endif %}
-              </td>
-              <td class="text-center">
-                {% if tech.tickets_only %}
-                  <i class="bi bi-check-circle-fill text-warning"></i>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </td>
-              <td class="text-center">
-                {% if tech.no_sundays %}
-                  <i class="bi bi-x-circle-fill text-danger"></i>
-                {% else %}
-                  <i class="bi bi-check text-success"></i>
-                {% endif %}
-              </td>
-              <!-- Historial -->
-              <td class="text-center">
-                {% if tech._last_hist %}
-                  <span class="badge bg-success">{{ tech._last_hist.total_t2_weeks }}</span>
-                {% else %}
-                  <span class="text-muted">0</span>
-                {% endif %}
-              </td>
-              <td class="text-center">
-                {% if tech._last_hist %}
-                  <span class="badge bg-warning text-dark">{{ tech._last_hist.total_ticket_weeks }}</span>
-                {% else %}
-                  <span class="text-muted">0</span>
-                {% endif %}
-              </td>
-              <td class="text-center">
-                {% if tech._last_hist %}
-                  <span class="badge bg-purple text-white" style="background-color:#8B5CF6">
-                    {{ tech._last_hist.total_sundays }}
+                {% if tech.fixed_shift %}
+                  <span class="badge {% if tech.fixed_shift == 'T2' %}bg-success{% else %}bg-primary{% endif %}">
+                    {{ tech.fixed_shift }}
                   </span>
-                {% else %}
-                  <span class="text-muted">0</span>
-                {% endif %}
+                {% else %}--{% endif %}
               </td>
               <td>
-                {% if tech.is_active %}
-                  <span class="badge bg-success">Activo</span>
-                {% else %}
-                  <span class="badge bg-secondary">Inactivo</span>
-                {% endif %}
+                {% if tech.tickets_only %}<span class="badge bg-warning text-dark me-1">Solo TKT</span>{% endif %}
+                {% if tech.no_sundays %}<span class="badge bg-secondary">Sin DOM</span>{% endif %}
               </td>
               <td>
-                <button class="btn btn-xs btn-outline-secondary btn-sm py-0"
-                        data-bs-toggle="modal"
-                        data-bs-target="#editTechModal"
-                        data-id="{{ tech.id }}"
-                        data-name="{{ tech.name }}"
-                        data-code="{{ tech.code or '' }}"
-                        data-supervisor="{{ tech.supervisor or '' }}"
-                        data-fixed="{{ tech.fixed_shift or '' }}"
-                        data-tickets="{{ 'true' if tech.tickets_only else 'false' }}"
-                        data-nosun="{{ 'true' if tech.no_sundays else 'false' }}"
-                        data-active="{{ 'true' if tech.is_active else 'false' }}">
-                  <i class="bi bi-pencil"></i>
-                </button>
+                <span class="badge {% if tech.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                  {{ 'Activo' if tech.is_active else 'Inactivo' }}
+                </span>
+              </td>
+              <td>
+                <div class="d-flex gap-1">
+                  <!-- Edit modal trigger -->
+                  <button class="btn btn-sm btn-outline-primary py-0"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editTechModal"
+                          onclick="fillEditModal({{ tech.id }}, '{{ tech.name }}', '{{ tech.supervisor or '' }}', '{{ tech.fixed_shift or '' }}', {{ tech.tickets_only | tojson }}, {{ tech.no_sundays | tojson }})">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                  <!-- Toggle active -->
+                  <form method="post" action="{{ url_for('toggle_technician', tech_id=tech.id) }}"
+                        onsubmit="return confirm('Cambiar estado de {{ tech.name }}?')">
+                    <button class="btn btn-sm {% if tech.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %} py-0">
+                      <i class="bi {% if tech.is_active %}bi-person-dash{% else %}bi-person-check{% endif %}"></i>
+                    </button>
+                  </form>
+                </div>
               </td>
             </tr>
+          {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-4">Sin tecnicos registrados</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -153,52 +70,100 @@
   </div>
 </div>
 
-<!-- MODAL Agregar Técnico -->
+<!-- ADD MODAL -->
 <div class="modal fade" id="addTechModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="post" action="{{ url_for('add_technician') }}">
         <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Agregar Técnico</h5>
+          <h5 class="modal-title"><i class="bi bi-person-plus me-2 text-primary"></i>Agregar Tecnico</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          {% include '_tech_form.html' %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Nombre *</label>
+            <input type="text" name="name" class="form-control" required placeholder="Nombre completo">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <label class="form-label fw-semibold">Codigo</label>
+              <input type="text" name="code" class="form-control" placeholder="Ej: TEC001">
+            </div>
+            <div class="col">
+              <label class="form-label fw-semibold">Supervisor</label>
+              <input type="text" name="supervisor" class="form-control" placeholder="Nombre supervisor">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Turno fijo</label>
+            <select name="fixed_shift" class="form-select">
+              <option value="">Rotacion automatica</option>
+              {% for s in all_shifts %}
+                <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="tickets_only" id="add_tk">
+              <label class="form-check-label small" for="add_tk">Solo tickets</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="no_sundays" id="add_ns">
+              <label class="form-check-label small" for="add_ns">Sin dominicales</label>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-person-check me-1"></i>Agregar
-          </button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check me-1"></i>Agregar</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<!-- MODAL Editar Técnico -->
+<!-- EDIT MODAL -->
 <div class="modal fade" id="editTechModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="post" id="editTechForm" action="">
+      <form method="post" id="editTechForm">
         <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Editar Técnico</h5>
+          <h5 class="modal-title"><i class="bi bi-pencil me-2 text-primary"></i>Editar Tecnico</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          {% include '_tech_form.html' %}
           <div class="mb-3">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="editActive" name="is_active">
-              <label class="form-check-label" for="editActive">Técnico activo</label>
+            <label class="form-label fw-semibold">Nombre *</label>
+            <input type="text" name="name" id="edit_name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Supervisor</label>
+            <input type="text" name="supervisor" id="edit_supervisor" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Turno fijo</label>
+            <select name="fixed_shift" id="edit_fixed_shift" class="form-select">
+              <option value="">Rotacion automatica</option>
+              {% for s in all_shifts %}
+                <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="tickets_only" id="edit_tk">
+              <label class="form-check-label small" for="edit_tk">Solo tickets</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="no_sundays" id="edit_ns">
+              <label class="form-check-label small" for="edit_ns">Sin dominicales</label>
             </div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="bi bi-save me-1"></i>Guardar
-          </button>
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check me-1"></i>Guardar</button>
         </div>
       </form>
     </div>
@@ -208,18 +173,13 @@
 
 {% block scripts %}
 <script>
-// Rellenar modal de edición
-document.getElementById('editTechModal').addEventListener('show.bs.modal', function(e) {
-  const btn = e.relatedTarget;
-  const form = document.getElementById('editTechForm');
-  form.action = `/technicians/edit/${btn.dataset.id}`;
-  form.querySelector('[name="name"]').value = btn.dataset.name;
-  form.querySelector('[name="code"]').value = btn.dataset.code;
-  form.querySelector('[name="supervisor"]').value = btn.dataset.supervisor;
-  form.querySelector('[name="fixed_shift"]').value = btn.dataset.fixed;
-  form.querySelector('[name="tickets_only"]').checked = btn.dataset.tickets === 'true';
-  form.querySelector('[name="no_sundays"]').checked = btn.dataset.nosun === 'true';
-  form.querySelector('[name="is_active"]').checked = btn.dataset.active === 'true';
-});
+function fillEditModal(id, name, supervisor, fixedShift, ticketsOnly, noSundays) {
+  document.getElementById('editTechForm').action = '/technicians/' + id + '/edit';
+  document.getElementById('edit_name').value = name;
+  document.getElementById('edit_supervisor').value = supervisor;
+  document.getElementById('edit_fixed_shift').value = fixedShift;
+  document.getElementById('edit_tk').checked = ticketsOnly;
+  document.getElementById('edit_ns').checked = noSundays;
+}
 </script>
 {% endblock %}

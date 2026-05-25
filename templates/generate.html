@@ -1,66 +1,118 @@
 {% extends "base.html" %}
 {% block title %}Generar Semana{% endblock %}
+{% block title_display %}Generar Semana{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center mt-4">
-  <div class="col-md-6">
-    <div class="card border-0 shadow">
-      <div class="card-header bg-primary text-white">
-        <h5 class="mb-0"><i class="bi bi-magic me-2"></i>Generar Horario Semanal</h5>
-      </div>
-      <div class="card-body">
-        <form method="post" action="{{ url_for('generate') }}">
-
-          <div class="mb-4">
-            <label class="form-label fw-semibold fs-6">Seleccionar semana a generar</label>
-            <input type="date" name="week_start" class="form-control form-control-lg"
-                   value="{{ next_monday.isoformat() }}" required>
-            <div class="form-text">Se ajustará automáticamente al lunes de esa semana.</div>
-          </div>
-
-          <!-- Info del algoritmo -->
-          <div class="alert alert-info small">
-            <h6 class="alert-heading"><i class="bi bi-info-circle me-1"></i>El algoritmo hará:</h6>
-            <ul class="mb-0">
-              <li>Asignará técnicos fijos a sus turnos (T1/T2)</li>
-              <li>Garantizará mínimo <strong>6 técnicos en T2</strong> cada día</li>
-              <li>Seleccionará <strong>5 técnicos de tickets</strong> (rotación equitativa)</li>
-              <li>Distribuirá dominicales/festivos sin repetir consecutivos</li>
-              <li>Registrará historial para equidad futura</li>
-            </ul>
-          </div>
-
-          <div class="mb-4">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="forceCheck" name="force" value="true">
-              <label class="form-check-label" for="forceCheck">
-                <strong>Forzar regeneración</strong>
-                <small class="text-muted d-block">Si la semana ya fue generada, la elimina y regenera</small>
-              </label>
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <form method="post">
+      <!-- WEEK SELECTOR -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white">
+          <span class="fw-semibold"><i class="bi bi-calendar-week me-2 text-primary"></i>Semana a generar</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label fw-semibold">Lunes de inicio *</label>
+              <input type="date" name="week_start" class="form-control"
+                     value="{{ monday.isoformat() }}" required>
+              <div class="form-text">Debe ser lunes.</div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox" name="force_regenerate" id="forceRegen">
+                <label class="form-check-label" for="forceRegen">
+                  Forzar regeneracion (si ya existe)
+                </label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="alert alert-info py-2 small mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                T2 min: <strong>{{ min_t2 }}</strong> &nbsp;|&nbsp; Tickets: <strong>{{ ticket_count }}</strong>
+                <a href="{{ url_for('config_view') }}" class="d-block small mt-1">Cambiar config</a>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-primary btn-lg">
-              <i class="bi bi-magic me-2"></i>Generar Horario
-            </button>
-            <a href="{{ url_for('schedule') }}" class="btn btn-outline-secondary">
-              Ver horario actual
-            </a>
+      <!-- MANUAL T2 SELECTION -->
+      <div class="card border-0 shadow-sm mb-3" x-data="{ expanded: false }">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center"
+             style="cursor:pointer" @click="expanded = !expanded">
+          <span class="fw-semibold">
+            <i class="bi bi-person-check me-2 text-success"></i>Tecnicos T2 manuales
+            <span class="badge bg-success ms-2" x-text="document.querySelectorAll('[name=forced_t2_ids]:checked').length + ' seleccionados'"></span>
+          </span>
+          <i class="bi" :class="expanded ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+        </div>
+        <div class="card-body" x-show="expanded" x-transition>
+          <p class="small text-muted mb-3">
+            Los tecnicos marcados aqui se asignaran forzosamente a T2, sin importar la rotacion automatica.
+          </p>
+          <div class="row g-2">
+            {% for tech in technicians %}
+              {% if not tech.tickets_only %}
+                <div class="col-md-3 col-6">
+                  <div class="form-check border rounded p-2 h-100">
+                    <input class="form-check-input" type="checkbox"
+                           name="forced_t2_ids" value="{{ tech.id }}"
+                           id="t2_{{ tech.id }}"
+                           {% if tech.fixed_shift == 'T2' %}checked disabled{% endif %}>
+                    <label class="form-check-label small" for="t2_{{ tech.id }}">
+                      {{ tech.name }}
+                      {% if tech.fixed_shift == 'T2' %}<span class="badge bg-success ms-1" style="font-size:.6rem">FIJO T2</span>{% endif %}
+                      {% if tech.fixed_shift == 'T1' %}<span class="badge bg-primary ms-1" style="font-size:.6rem">FIJO T1</span>{% endif %}
+                    </label>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
           </div>
-        </form>
+        </div>
       </div>
-    </div>
 
-    <!-- Notas legales -->
-    <div class="card border-0 shadow-sm mt-3">
-      <div class="card-body small">
-        <h6 class="text-muted"><i class="bi bi-shield-check me-1"></i>Cumplimiento Laboral Colombia</h6>
-        <p class="mb-1">Jornada actual: <strong>44 horas semanales</strong> (Ley 2101/2021)</p>
-        <p class="mb-1">Desde julio 2026: <strong>42 horas semanales</strong></p>
-        <p class="mb-0 text-muted">T1 L-V: 8h | T2 L-V: 8h | T1 Sáb: 5h | T2 Sáb: 7.5h</p>
+      <!-- MANUAL TICKET SELECTION -->
+      <div class="card border-0 shadow-sm mb-3" x-data="{ expanded: false }">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center"
+             style="cursor:pointer" @click="expanded = !expanded">
+          <span class="fw-semibold">
+            <i class="bi bi-ticket-detailed me-2 text-warning"></i>Tecnicos ticket manuales
+          </span>
+          <i class="bi" :class="expanded ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+        </div>
+        <div class="card-body" x-show="expanded" x-transition>
+          <p class="small text-muted mb-3">
+            Los tecnicos marcados aqui recibiran la etiqueta de ticket esta semana (solo aplica a T1).
+          </p>
+          <div class="row g-2">
+            {% for tech in technicians %}
+              <div class="col-md-3 col-6">
+                <div class="form-check border rounded p-2 h-100">
+                  <input class="form-check-input" type="checkbox"
+                         name="forced_ticket_ids" value="{{ tech.id }}"
+                         id="tk_{{ tech.id }}"
+                         {% if tech.tickets_only %}checked disabled{% endif %}>
+                  <label class="form-check-label small" for="tk_{{ tech.id }}">
+                    {{ tech.name }}
+                    {% if tech.tickets_only %}<span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">SOLO TKT</span>{% endif %}
+                  </label>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-    </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary px-4">
+          <i class="bi bi-magic me-2"></i>Generar horario
+        </button>
+        <a href="{{ url_for('schedule') }}" class="btn btn-outline-secondary">Cancelar</a>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}

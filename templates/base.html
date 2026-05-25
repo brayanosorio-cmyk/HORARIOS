@@ -1,93 +1,96 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" x-data="{ sidebarOpen: window.innerWidth > 768 }">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Turnos Soporte{% endblock %} — Somos Internet</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <title>{% block title %}Turnos{% endblock %} — Soporte FTTH</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
 
-<!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-  <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
-      <i class="bi bi-calendar3-week me-2"></i>Turnos Soporte
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarMain">
-      <ul class="navbar-nav me-auto">
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}"
-             href="{{ url_for('index') }}">
-            <i class="bi bi-speedometer2 me-1"></i>Dashboard
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'schedule' %}active{% endif %}"
-             href="{{ url_for('schedule') }}">
-            <i class="bi bi-table me-1"></i>Horario Semanal
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'novelties' %}active{% endif %}"
-             href="{{ url_for('novelties') }}">
-            <i class="bi bi-exclamation-triangle me-1"></i>Novedades
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'technicians' %}active{% endif %}"
-             href="{{ url_for('technicians') }}">
-            <i class="bi bi-people me-1"></i>Técnicos
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {% if request.endpoint == 'history' %}active{% endif %}"
-             href="{{ url_for('history') }}">
-            <i class="bi bi-clock-history me-1"></i>Historial
-          </a>
-        </li>
-      </ul>
-      <div class="navbar-text text-white-50 me-3 d-none d-lg-block">
-        <i class="bi bi-calendar-date me-1"></i>{{ now.strftime('%d/%m/%Y') if now else '' }}
-      </div>
-      <a class="btn btn-warning btn-sm" href="{{ url_for('generate') }}">
-        <i class="bi bi-magic me-1"></i>Generar Semana
-      </a>
-    </div>
+<!-- SIDEBAR -->
+<aside class="sidebar" :class="sidebarOpen ? 'sidebar-open' : 'sidebar-closed'">
+  <div class="sidebar-brand">
+    <i class="bi bi-broadcast-pin me-2"></i>
+    <span class="sidebar-label">Turnos FTTH</span>
   </div>
-</nav>
+  <nav class="sidebar-nav">
+    <a href="{{ url_for('index') }}" class="sidebar-link {% if request.endpoint == 'index' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i><span class="sidebar-label">Dashboard</span>
+    </a>
+    <a href="{{ url_for('schedule') }}" class="sidebar-link {% if request.endpoint == 'schedule' %}active{% endif %}">
+      <i class="bi bi-table"></i><span class="sidebar-label">Horario Semanal</span>
+    </a>
+    <a href="{{ url_for('month_view') }}" class="sidebar-link {% if request.endpoint == 'month_view' %}active{% endif %}">
+      <i class="bi bi-calendar3"></i><span class="sidebar-label">Vista Mensual</span>
+    </a>
+    <a href="{{ url_for('generate') }}" class="sidebar-link {% if request.endpoint == 'generate' %}active{% endif %}">
+      <i class="bi bi-magic"></i><span class="sidebar-label">Generar Semana</span>
+    </a>
+    <div class="sidebar-divider"></div>
+    <a href="{{ url_for('novelties') }}" class="sidebar-link {% if request.endpoint == 'novelties' %}active{% endif %}">
+      <i class="bi bi-exclamation-triangle"></i><span class="sidebar-label">Novedades</span>
+    </a>
+    <a href="{{ url_for('technicians') }}" class="sidebar-link {% if request.endpoint == 'technicians' %}active{% endif %}">
+      <i class="bi bi-people"></i><span class="sidebar-label">Tecnicos</span>
+    </a>
+    <a href="{{ url_for('history') }}" class="sidebar-link {% if request.endpoint == 'history' %}active{% endif %}">
+      <i class="bi bi-bar-chart-line"></i><span class="sidebar-label">Equidad</span>
+    </a>
+    <a href="{{ url_for('holidays') }}" class="sidebar-link {% if request.endpoint == 'holidays' %}active{% endif %}">
+      <i class="bi bi-calendar-heart"></i><span class="sidebar-label">Festivos</span>
+    </a>
+    <div class="sidebar-divider"></div>
+    <a href="{{ url_for('config_view') }}" class="sidebar-link {% if request.endpoint == 'config_view' %}active{% endif %}">
+      <i class="bi bi-gear"></i><span class="sidebar-label">Configuracion</span>
+    </a>
+    <a href="{{ url_for('admin') }}" class="sidebar-link {% if request.endpoint == 'admin' %}active{% endif %}">
+      <i class="bi bi-shield-lock"></i><span class="sidebar-label">Admin</span>
+    </a>
+    <a href="{{ url_for('audit') }}" class="sidebar-link {% if request.endpoint == 'audit' %}active{% endif %}">
+      <i class="bi bi-clock-history"></i><span class="sidebar-label">Auditoria</span>
+    </a>
+  </nav>
+</aside>
 
-<!-- Flash messages -->
-<div class="container-fluid pt-3">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ 'danger' if category == 'danger' else ('warning' if category == 'warning' else 'success') }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
+<!-- MAIN WRAPPER -->
+<div class="main-wrapper" :class="sidebarOpen ? 'main-shifted' : ''">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <button class="btn btn-sm btn-link topbar-toggle" @click="sidebarOpen = !sidebarOpen">
+      <i class="bi bi-list fs-5"></i>
+    </button>
+    <span class="topbar-title">{% block title_display %}{% endblock %}</span>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <span class="badge bg-secondary small">{{ now.strftime('%d/%m/%Y') }}</span>
+    </div>
+  </header>
+
+  <!-- ALERTS -->
+  <div class="px-3 pt-2">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show py-2 small mb-2" role="alert">
+          <i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'danger' %}x-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-1"></i>
+          {{ message }}
+          <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+
+  <!-- PAGE CONTENT -->
+  <main class="page-content">
+    {% block content %}{% endblock %}
+  </main>
+
 </div>
 
-<!-- Content -->
-<main class="container-fluid pb-5">
-  {% block content %}{% endblock %}
-</main>
-
-<!-- Footer -->
-<footer class="footer bg-light border-top py-2 mt-auto">
-  <div class="container-fluid text-center text-muted small">
-    Somos Internet · Coordinación Soporte Técnico ·
-    <span class="text-primary">Sistema de Horarios v1.0</span>
-  </div>
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 {% block scripts %}{% endblock %}
