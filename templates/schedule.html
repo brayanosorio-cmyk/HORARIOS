@@ -6,21 +6,15 @@
   <div class="col">
     <h4 class="mb-0"><i class="bi bi-table me-2 text-primary"></i>Horario Semanal</h4>
   </div>
-  <!-- Navegación -->
   <div class="col-auto d-flex gap-2 align-items-center flex-wrap">
-    <a href="{{ url_for('schedule', week_str=prev_week.isoformat()) }}"
-       class="btn btn-sm btn-outline-secondary">
+    <a href="{{ url_for('schedule', week_str=prev_week.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-chevron-left"></i> Ant.
     </a>
-
-    <!-- Selector semana -->
     <form method="get" class="d-flex gap-1">
-      <select name="week_start" class="form-select form-select-sm"
-              onchange="this.form.submit()" style="min-width:160px">
+      <select name="week_start" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width:160px">
         {% for w in all_weeks %}
-          <option value="{{ w.week_start.isoformat() }}"
-            {{ 'selected' if w.week_start == week_start }}>
-            {{ w.week_start | date_fmt }} — {{ w.week_end | date_fmt }}
+          <option value="{{ w.week_start.isoformat() }}" {{ 'selected' if w.week_start == week_start }}>
+            {{ w.week_start | date_fmt }} -- {{ w.week_end | date_fmt }}
           </option>
         {% endfor %}
         {% if not all_weeks %}
@@ -28,9 +22,7 @@
         {% endif %}
       </select>
     </form>
-
-    <a href="{{ url_for('schedule', week_str=next_week.isoformat()) }}"
-       class="btn btn-sm btn-outline-secondary">
+    <a href="{{ url_for('schedule', week_str=next_week.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
       Sig. <i class="bi bi-chevron-right"></i>
     </a>
     <a href="{{ url_for('generate') }}" class="btn btn-sm btn-primary">
@@ -40,60 +32,48 @@
 </div>
 
 {% if data %}
-<!-- Leyenda de colores -->
 <div class="d-flex flex-wrap gap-2 mb-3">
-  {% set legend = [('T1','#3B82F6','Turno 1 (7:30–16:30)'), ('T2','#10B981','Turno 2 (10:30–19:30)'),
-                   ('D','#8B5CF6','Dominical/Festivo'), ('DESC','#6B7280','Descanso'),
-                   ('EPS','#EF4444','EPS'), ('V','#F59E0B','Vacaciones'),
-                   ('PERM','#F97316','Permiso'), ('INCAP','#B91C1C','Incapacidad')] %}
-  {% for code, color, label in legend %}
-    <span class="badge rounded-pill" style="background-color:{{ color }};font-size:0.75rem">
-      {{ code }} — {{ label }}
-    </span>
-  {% endfor %}
-  <span class="badge bg-light text-dark border rounded-pill" style="font-size:0.75rem">
-    <i class="bi bi-ticket-detailed me-1 text-warning"></i>T = Tickets
-  </span>
+  <span class="badge rounded-pill" style="background-color:#3B82F6">T1 -- Turno 1 (7:30-16:30)</span>
+  <span class="badge rounded-pill" style="background-color:#10B981">T2 -- Turno 2 (10:30-19:30)</span>
+  <span class="badge rounded-pill" style="background-color:#8B5CF6">D -- Dominical/Festivo</span>
+  <span class="badge rounded-pill" style="background-color:#6B7280">DESC -- Descanso</span>
+  <span class="badge rounded-pill" style="background-color:#EF4444">EPS</span>
+  <span class="badge rounded-pill" style="background-color:#F59E0B">V -- Vacaciones</span>
+  <span class="badge rounded-pill" style="background-color:#F97316">PERM -- Permiso</span>
+  <span class="badge rounded-pill" style="background-color:#B91C1C">INCAP -- Incapacidad</span>
 </div>
 
-<!-- Alertas de cobertura T2 -->
 {% set t2_min = data.min_t2 %}
 {% if t2_min < 6 %}
   <div class="alert alert-danger py-2">
     <i class="bi bi-exclamation-triangle-fill me-2"></i>
-    <strong>Alerta cobertura:</strong> Hay días con menos de 6 técnicos en T2.
-    Revisa las columnas marcadas en rojo.
+    <strong>Alerta:</strong> Hay dias con menos de 6 tecnicos en T2.
   </div>
 {% endif %}
 
-<!-- Tabla principal del horario -->
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive schedule-table-container">
       <table class="table table-bordered table-sm mb-0 text-center schedule-table">
         <thead>
           <tr class="table-dark">
-            <th class="text-start sticky-col" style="min-width:180px">Técnico</th>
-            {% for i, d in enumerate(data.dates) %}
-              <th class="{{ 'table-secondary' if data.is_special[i] else '' }}"
-                  style="min-width:70px">
+            <th class="text-start sticky-col" style="min-width:180px">Tecnico</th>
+            {% for d in data.dates %}
+              {% set i = loop.index0 %}
+              <th class="{{ 'table-secondary' if data.is_special[i] else '' }}" style="min-width:70px">
                 <div class="fw-bold">{{ d | weekday_es }}</div>
                 <div class="small text-muted">{{ d | date_fmt }}</div>
               </th>
             {% endfor %}
           </tr>
-          <!-- Fila T2 count -->
           <tr class="table-light small">
-            <td class="text-start sticky-col text-muted ps-2">T2 por día ⬇</td>
-            {% for i, v in enumerate(data.daily_t2) %}
-              <td class="{{ 'text-danger fw-bold' if v < 6 else 'text-success fw-bold' }}">
-                {{ v }}
-              </td>
+            <td class="text-start sticky-col text-muted ps-2">T2 por dia</td>
+            {% for v in data.daily_t2 %}
+              <td class="{{ 'text-danger fw-bold' if v < 6 else 'text-success fw-bold' }}">{{ v }}</td>
             {% endfor %}
           </tr>
-          <!-- Fila Tickets count -->
           <tr class="table-light small">
-            <td class="text-start sticky-col text-muted ps-2">Tickets por día</td>
+            <td class="text-start sticky-col text-muted ps-2">Tickets por dia</td>
             {% for v in data.daily_tickets %}
               <td class="text-warning fw-bold">{{ v }}</td>
             {% endfor %}
@@ -112,18 +92,9 @@
                 {% endif %}
               </td>
               {% for cell in row.cells %}
-                <td class="schedule-cell py-1"
-                    style="background-color:{{ cell.color }}22; border-color:{{ cell.color }}44">
-                  <span class="badge" style="background-color:{{ cell.color }}; font-size:0.8rem">
-                    {{ cell.shift }}
-                  </span>
-                  {% if cell.is_ticket %}
-                    <br><i class="bi bi-ticket-detailed text-warning" style="font-size:0.65rem"
-                           title="Técnico de Tickets"></i>
-                  {% endif %}
-                  {% if cell.is_sunday %}
-                    <br><i class="bi bi-sun text-purple" style="font-size:0.65rem"></i>
-                  {% endif %}
+                <td class="schedule-cell py-1" style="background-color:{{ cell.color }}22">
+                  <span class="badge" style="background-color:{{ cell.color }};font-size:0.8rem">{{ cell.shift }}</span>
+                  {% if cell.is_ticket %}<br><i class="bi bi-ticket-detailed text-warning" style="font-size:0.65rem"></i>{% endif %}
                 </td>
               {% endfor %}
             </tr>
@@ -134,41 +105,24 @@
   </div>
 </div>
 
-<!-- Mini-stats de la semana -->
 <div class="row g-3 mt-2">
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="card border-0 shadow-sm">
       <div class="card-body py-2">
-        <canvas id="chartT2" height="120"></canvas>
+        <canvas id="chartT2" height="130"></canvas>
       </div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body py-2">
-        <canvas id="chartShifts" height="120"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-4">
+  <div class="col-md-6">
     <div class="card border-0 shadow-sm">
       <div class="card-body text-center py-3">
         <h6 class="text-muted">Semana generada</h6>
         <h5>{{ data.week.generated_at.strftime('%d/%m/%Y %H:%M') }}</h5>
         <hr>
         <div class="d-flex justify-content-around small">
-          <div>
-            <div class="fw-bold text-success fs-4">{{ data.daily_t2 | sum }}</div>
-            <div class="text-muted">Total T2</div>
-          </div>
-          <div>
-            <div class="fw-bold text-warning fs-4">{{ data.daily_tickets | sum }}</div>
-            <div class="text-muted">Total Tickets</div>
-          </div>
-          <div>
-            <div class="fw-bold text-primary fs-4">{{ data.rows | length }}</div>
-            <div class="text-muted">Técnicos</div>
-          </div>
+          <div><div class="fw-bold text-success fs-4">{{ data.daily_t2 | sum }}</div><div class="text-muted">Total T2</div></div>
+          <div><div class="fw-bold text-warning fs-4">{{ data.daily_tickets | sum }}</div><div class="text-muted">Tickets</div></div>
+          <div><div class="fw-bold text-primary fs-4">{{ data.rows | length }}</div><div class="text-muted">Tecnicos</div></div>
         </div>
       </div>
     </div>
@@ -180,8 +134,7 @@
   <div class="card-body text-center py-5 text-muted">
     <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
     <h5>Semana no generada</h5>
-    <p>El horario para esta semana no ha sido generado todavía.</p>
-    <a href="{{ url_for('generate') }}" class="btn btn-primary">
+    <a href="{{ url_for('generate') }}" class="btn btn-primary mt-2">
       <i class="bi bi-magic me-1"></i>Generar ahora
     </a>
   </div>
@@ -192,64 +145,19 @@
 {% block scripts %}
 {% if data %}
 <script>
-const days = {{ data.dates | map('date_fmt') | list | tojson }};
+const days = [{% for d in data.dates %}"{{ d | date_fmt }}"{% if not loop.last %},{% endif %}{% endfor %}];
 const t2Data = {{ data.daily_t2 | tojson }};
-const ticketData = {{ data.daily_tickets | tojson }};
-
-// Chart T2 por día
 new Chart(document.getElementById('chartT2'), {
   type: 'bar',
   data: {
     labels: days,
-    datasets: [{
-      label: 'Técnicos T2',
-      data: t2Data,
+    datasets: [{ label: 'Tecnicos T2', data: t2Data,
       backgroundColor: t2Data.map(v => v < 6 ? '#EF444488' : '#10B98188'),
-      borderColor:     t2Data.map(v => v < 6 ? '#EF4444' : '#10B981'),
-      borderWidth: 2,
-    }]
+      borderColor: t2Data.map(v => v < 6 ? '#EF4444' : '#10B981'), borderWidth: 2 }]
   },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { display: false },
-      title: { display: true, text: 'T2 por Día (mínimo 6)', font: { size: 12 } }
-    },
-    scales: {
-      y: { beginAtZero: true, suggestedMax: 10,
-           ticks: { stepSize: 1 } }
-    }
-  }
-});
-
-// Chart distribución de turnos (dona)
-// Contar shifts del primer día
-const shiftCounts = { T1: 0, T2: 0, D: 0, DESC: 0, Novedad: 0 };
-{% for row in data.rows %}
-  {% for cell in row.cells %}
-    {% if cell.shift in ['T1', 'T2', 'D', 'DESC'] %}
-      shiftCounts['{{ cell.shift }}'] = (shiftCounts['{{ cell.shift }}'] || 0) + 1;
-    {% elif cell.shift not in ['—'] %}
-      shiftCounts['Novedad'] = (shiftCounts['Novedad'] || 0) + 1;
-    {% endif %}
-  {% endfor %}
-{% endfor %}
-
-new Chart(document.getElementById('chartShifts'), {
-  type: 'doughnut',
-  data: {
-    labels: Object.keys(shiftCounts),
-    datasets: [{
-      data: Object.values(shiftCounts),
-      backgroundColor: ['#3B82F688','#10B98188','#8B5CF688','#6B728088','#EF444488'],
-    }]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { position: 'right', labels: { font: { size: 11 } } },
-      title: { display: true, text: 'Distribución Total Semana', font: { size: 12 } }
-    }
+  options: { responsive: true,
+    plugins: { legend: { display: false }, title: { display: true, text: 'T2 por Dia (minimo 6)', font: { size: 12 } } },
+    scales: { y: { beginAtZero: true, suggestedMax: 10, ticks: { stepSize: 1 } } }
   }
 });
 </script>

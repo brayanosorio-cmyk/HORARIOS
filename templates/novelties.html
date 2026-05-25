@@ -5,7 +5,7 @@
 <div class="row mt-3 mb-3 align-items-center">
   <div class="col">
     <h4 class="mb-0"><i class="bi bi-exclamation-triangle me-2 text-warning"></i>Novedades Diarias</h4>
-    <small class="text-muted">Semana: {{ week_start | date_fmt }} — {{ (week_start + timedelta(days=6)) | date_fmt }}</small>
+    <small class="text-muted">Semana: {{ week_start | date_fmt }} -- {{ (week_start + timedelta(days=6)) | date_fmt }}</small>
   </div>
   <div class="col-auto">
     <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#addNoveltyModal">
@@ -14,7 +14,6 @@
   </div>
 </div>
 
-<!-- Tabla de novedades de la semana -->
 <div class="card border-0 shadow-sm mb-4">
   <div class="card-header bg-white">
     <h6 class="mb-0">Novedades de la Semana</h6>
@@ -25,9 +24,9 @@
         <table class="table table-hover mb-0 small">
           <thead class="table-light">
             <tr>
-              <th>Técnico</th>
+              <th>Tecnico</th>
               <th>Fecha</th>
-              <th>Día</th>
+              <th>Dia</th>
               <th>Tipo</th>
               <th>Notas</th>
               <th>Registrado</th>
@@ -41,16 +40,14 @@
                 <td>{{ nov.date | date_fmt }}</td>
                 <td class="text-muted">{{ nov.date | weekday_es }}</td>
                 <td>
-                  <span class="badge" style="background-color: {{ nov.color }}">
-                    {{ nov.novelty_type }}
-                  </span>
+                  <span class="badge" style="background-color: {{ nov.color }}">{{ nov.novelty_type }}</span>
                 </td>
-                <td class="text-muted">{{ nov.notes or '—' }}</td>
+                <td class="text-muted">{{ nov.notes or '--' }}</td>
                 <td class="text-muted">{{ nov.registered_at.strftime('%d/%m %H:%M') }}</td>
                 <td>
                   <form method="post" action="{{ url_for('delete_novelty', nov_id=nov.id) }}"
-                        onsubmit="return confirm('¿Eliminar esta novedad?')">
-                    <button class="btn btn-xs btn-outline-danger btn-sm py-0">
+                        onsubmit="return confirm('Eliminar esta novedad?')">
+                    <button class="btn btn-sm btn-outline-danger py-0">
                       <i class="bi bi-trash"></i>
                     </button>
                   </form>
@@ -69,13 +66,19 @@
   </div>
 </div>
 
-<!-- Resumen visual por técnico -->
 <div class="card border-0 shadow-sm">
   <div class="card-header bg-white">
-    <h6 class="mb-0">Técnicos con Novedades Activas</h6>
+    <h6 class="mb-0">Tecnicos con Novedades Activas</h6>
   </div>
   <div class="card-body">
-    {% set techs_with_nov = week_novelties | map(attribute='technician') | unique(attribute='id') | list %}
+    {% set seen_ids = [] %}
+    {% set techs_with_nov = [] %}
+    {% for nov in week_novelties %}
+      {% if nov.technician_id not in seen_ids %}
+        {% set _ = techs_with_nov.append(nov.technician) %}
+        {% set _ = seen_ids.append(nov.technician_id) %}
+      {% endif %}
+    {% endfor %}
     {% if techs_with_nov %}
       <div class="d-flex flex-wrap gap-2">
         {% for tech in techs_with_nov %}
@@ -92,76 +95,71 @@
         {% endfor %}
       </div>
     {% else %}
-      <p class="text-muted mb-0">Ningún técnico con novedad esta semana.</p>
+      <p class="text-muted mb-0">Ningun tecnico con novedad esta semana.</p>
     {% endif %}
   </div>
 </div>
 
-<!-- MODAL: Registrar Novedad -->
+<!-- MODAL -->
 <div class="modal fade" id="addNoveltyModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="post" action="{{ url_for('novelties') }}">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-            Registrar Novedad
-          </h5>
+          <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Registrar Novedad</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-
           <div class="mb-3">
-            <label class="form-label fw-semibold">Técnico *</label>
+            <label class="form-label fw-semibold">Tecnico *</label>
             <select name="technician_id" class="form-select" required>
-              <option value="">— Seleccionar técnico —</option>
+              <option value="">-- Seleccionar tecnico --</option>
               {% for tech in technicians %}
                 <option value="{{ tech.id }}">{{ tech.name }}</option>
               {% endfor %}
             </select>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Fecha *</label>
-            <input type="date" name="date" class="form-control"
-                   value="{{ today.isoformat() }}" required>
+            <input type="date" name="date" class="form-control" value="{{ today.isoformat() }}" required>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Tipo de Novedad *</label>
-            <div class="d-flex flex-wrap gap-2">
-              {% set type_labels = {
-                'EPS': ('EPS / Médico', '#EF4444'),
-                'V': ('Vacaciones', '#F59E0B'),
-                'PERM': ('Permiso', '#F97316'),
-                'CAL': ('Calamidad', '#DC2626'),
-                'INCAP': ('Incapacidad', '#B91C1C'),
-                'OTRO': ('Otro', '#9CA3AF'),
-              } %}
-              {% for code, (label, color) in type_labels.items() %}
-                <div class="form-check">
-                  <input class="form-check-input" type="radio"
-                         name="novelty_type" id="nt_{{ code }}"
-                         value="{{ code }}" required>
-                  <label class="form-check-label" for="nt_{{ code }}">
-                    <span class="badge" style="background-color:{{ color }}">{{ label }}</span>
-                  </label>
-                </div>
-              {% endfor %}
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="novelty_type" id="nt_EPS" value="EPS" required>
+                <label class="form-check-label" for="nt_EPS"><span class="badge" style="background-color:#EF4444">EPS / Medico</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="novelty_type" id="nt_V" value="V">
+                <label class="form-check-label" for="nt_V"><span class="badge" style="background-color:#F59E0B">Vacaciones</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="novelty_type" id="nt_PERM" value="PERM">
+                <label class="form-check-label" for="nt_PERM"><span class="badge" style="background-color:#F97316">Permiso</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="novelty_type" id="nt_CAL" value="CAL">
+                <label class="form-check-label" for="nt_CAL"><span class="badge" style="background-color:#DC2626">Calamidad</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="novelty_type" id="nt_INCAP" value="INCAP">
+                <label class="form-check-label" for="nt_INCAP"><span class="badge" style="background-color:#B91C1C">Incapacidad</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="novelty_type" id="nt_OTRO" value="OTRO">
+                <label class="form-check-label" for="nt_OTRO"><span class="badge" style="background-color:#9CA3AF">Otro</span></label>
+              </div>
             </div>
           </div>
-
           <div class="mb-3">
             <label class="form-label fw-semibold">Notas (opcional)</label>
-            <input type="text" name="notes" class="form-control"
-                   placeholder="Ej: Cita médica urgente, autorizado por supervisor">
+            <input type="text" name="notes" class="form-control" placeholder="Ej: Cita medica, autorizado por supervisor">
           </div>
-
           <div class="alert alert-info py-2 small">
             <i class="bi bi-info-circle me-1"></i>
-            El sistema buscará reemplazo automático si la novedad afecta la cobertura T2 mínima.
+            El sistema buscara reemplazo automatico si la novedad afecta la cobertura T2 minima.
           </div>
-
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
