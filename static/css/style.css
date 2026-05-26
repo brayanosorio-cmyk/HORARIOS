@@ -599,37 +599,193 @@ a { text-decoration: none; }
   vertical-align: middle;
 }
 
+
 /* ============================================================
-   BULK IMPORT  (added v3.1)
+   v5 ADDITIONS: Filter bar, Alerts panel, Badge compact, Step UI
    ============================================================ */
-.drop-zone {
-  border: 2px dashed #93c5fd;
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  background: #eff6ff;
-  cursor: pointer;
-  position: relative;
-  transition: border-color .2s, background .2s;
+
+/* ---- Compact button variant ---- */
+.btn-xs {
+  padding: 2px 8px;
+  font-size: .72rem;
+  border-radius: 5px;
+  line-height: 1.4;
 }
-.drop-zone:hover, .drop-zone.drop-active {
-  border-color: #3b82f6;
-  background: #dbeafe;
+
+/* ---- Filter bar ---- */
+.filter-bar {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
-.drop-zone.drop-has-file {
-  border-color: #10b981;
-  background: #d1fae5;
-}
-.drop-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-}
-.drop-filename {
-  font-size: .82rem;
+
+.filter-label {
+  font-size: .7rem;
   font-weight: 600;
-  color: #065f46;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.week-btn {
+  min-width: 34px;
+  font-size: .7rem;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.week-btn.active {
+  font-weight: 700;
+}
+
+.filter-shift-btn {
+  font-size: .7rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: none;
+  opacity: 0.55;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.filter-shift-btn.active,
+.filter-shift-btn:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.form-control-xs {
+  padding: 3px 8px;
+  font-size: .72rem;
+  border-radius: 6px;
+  height: auto;
+}
+
+/* ---- Alerts panel ---- */
+.last-no-border:last-child {
+  border-bottom: 0 !important;
+}
+
+/* ---- Step UI in generate_month ---- */
+.step-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.step-label {
+  font-weight: 700;
+  font-size: .82rem;
+  color: #1e293b;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tech-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: #fff;
+}
+
+.tech-check-item {
+  margin: 0;
+  padding: 2px 0;
+}
+
+.tech-check-item .form-check-label {
+  font-size: .75rem;
+  cursor: pointer;
+}
+
+/* ---- Matrix badge: larger and clearer ---- */
+.matrix-badge {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  min-width: 28px;
+  text-align: center;
+}
+
+/* Unassigned cell badge */
+.matrix-badge-empty {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
+/* Picker ticket button */
+.picker-ticket-btn {
+  background: #fff7ed;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.picker-ticket-btn:hover {
+  background: #fef3c7;
+}
+
+.matrix-picker-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 2px 0;
+}
+
+/* ---- Summary rows (TK row) ---- */
+.matrix-summary-row td {
+  position: sticky;
+  background: #f8fafc;
+}
+
+/* Week transition: subtle left border to visually separate weeks */
+.matrix-cell[data-week="1"],
+.matrix-day-header[data-week="1"],
+.matrix-summary-cell[data-week="1"] {
+  border-left: 2px solid #cbd5e1 !important;
+}
+
+/* Improve matrix readability */
+.matrix-row:nth-child(even) .matrix-col-tech {
+  background: #f8fafc;
+}
+
+.matrix-row:nth-child(even):hover .matrix-col-tech {
+  background: #eff6ff;
+}
+
+/* ---- Mobile adjustments ---- */
+@media (max-width: 768px) {
+  .filter-bar .vr { display: none; }
+  .filter-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tech-selector-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
