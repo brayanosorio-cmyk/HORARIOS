@@ -3,13 +3,14 @@
 {% block title_display %}Calendario Mensual{% endblock %}
 
 {% block content %}
-<!-- MONTH NAV + CONTROLS -->
+
+<!-- TOP NAV -->
 <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
   <a href="{{ url_for('month_view', year=prev_year, month=prev_month) }}"
      class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-chevron-left"></i>
   </a>
-  <h5 class="mb-0 fw-bold">{{ month_name }} {{ year }}</h5>
+  <h5 class="mb-0 fw-bold text-dark">{{ month_name }} {{ year }}</h5>
   <a href="{{ url_for('month_view', year=next_year, month=next_month) }}"
      class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-chevron-right"></i>
@@ -17,63 +18,34 @@
 
   <div class="ms-auto d-flex gap-2 flex-wrap align-items-center">
     {% if ms %}
-      <span class="badge {% if ms.is_locked %}bg-secondary{% else %}bg-success{% endif %} fs-6">
-        {% if ms.is_locked %}
-          <i class="bi bi-lock-fill me-1"></i>Bloqueado
-        {% else %}
-          <i class="bi bi-check-circle me-1"></i>Activo
-        {% endif %}
-      </span>
       {% if ms.is_locked %}
+        <span class="badge bg-secondary"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
         <form method="post" action="{{ url_for('unlock_month', year=year, month=month) }}" class="d-inline">
           <button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock me-1"></i>Desbloquear</button>
         </form>
       {% else %}
+        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Activo</span>
         <form method="post" action="{{ url_for('lock_month', year=year, month=month) }}" class="d-inline">
-          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-lock me-1"></i>Bloquear mes</button>
+          <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-lock me-1"></i>Bloquear</button>
         </form>
       {% endif %}
     {% endif %}
-    <a href="{{ url_for('generate_month_view') }}" class="btn btn-sm btn-primary">
-      <i class="bi bi-magic me-1"></i>Generar mes
+    <a href="{{ url_for('novelties') }}" class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-exclamation-triangle me-1"></i>Novedades
     </a>
-    <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#noveltyModal">
-      <i class="bi bi-exclamation-triangle me-1"></i>Novedad
-    </button>
+    <a href="{{ url_for('generate_month_view') }}" class="btn btn-sm btn-primary">
+      <i class="bi bi-magic me-1"></i>Generar
+    </a>
   </div>
 </div>
 
-<!-- ALERT: low T2 days -->
-{% if low_t2_days %}
-  <div class="alert alert-danger py-2 small mb-3">
-    <i class="bi bi-exclamation-triangle-fill me-1"></i>
-    <strong>Alerta T2:</strong>
-    {% for d in low_t2_days | sort %}
-      <span class="badge bg-danger ms-1">{{ d | date_fmt }}</span>
-    {% endfor %}
-  </div>
-{% endif %}
-
-{% if not rows %}
-  <!-- NOT GENERATED -->
-  <div class="card border-0 shadow-sm">
-    <div class="card-body text-center py-5 text-muted">
-      <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
-      <h5>{{ month_name }} {{ year }} no generado</h5>
-      <p class="small">Genera el mes para ver el calendario operativo completo.</p>
-      <a href="{{ url_for('generate_month_view') }}" class="btn btn-primary mt-1">
-        <i class="bi bi-magic me-1"></i>Generar {{ month_name }} {{ year }}
-      </a>
-    </div>
-  </div>
-{% else %}
-
+{% if rows %}
 <!-- SUMMARY CARDS -->
-<div class="row g-2 mb-3">
+<div class="row g-2 mb-2">
   <div class="col-6 col-md-3">
     <div class="mini-stat mini-blue">
       <div class="mini-val">{{ rows | length }}</div>
-      <div class="mini-lbl">Tecnicos</div>
+      <div class="mini-lbl">Tecnicos activos</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
@@ -84,38 +56,102 @@
   </div>
   <div class="col-6 col-md-3">
     <div class="mini-stat mini-purple">
-      <div class="mini-val">{{ days_in_month }}</div>
-      <div class="mini-lbl">Dias del mes</div>
+      {% set hcount = namespace(v=0) %}
+      {% for d in month_days %}{% if is_holiday_map[d] %}{% set hcount.v = hcount.v + 1 %}{% endif %}{% endfor %}
+      <div class="mini-val">{{ hcount.v }}</div>
+      <div class="mini-lbl">Festivos/Domingos</div>
     </div>
   </div>
   <div class="col-6 col-md-3">
     <div class="mini-stat mini-orange">
-      <div class="mini-val">
-        {{ month_days | selectattr('weekday', 'equalto', 6) | list | length +
-           (month_days | selectattr('isoformat') | selectattr('isoformat') | list | length - month_days | length) }}
-        {% set hcount = namespace(v=0) %}
-        {% for d in month_days %}{% if is_holiday_map[d] %}{% set hcount.v = hcount.v + 1 %}{% endif %}{% endfor %}
-        {{ hcount.v }}
-      </div>
-      <div class="mini-lbl">Festivos/Domingos</div>
+      <div class="mini-val">{{ alerts | length }}</div>
+      <div class="mini-lbl">Alertas activas</div>
     </div>
+  </div>
+</div>
+
+<!-- ALERTS PANEL -->
+{% if alerts %}
+<div class="mb-2">
+  <button class="btn btn-sm btn-outline-danger w-100 text-start d-flex align-items-center gap-2"
+          type="button" data-bs-toggle="collapse" data-bs-target="#alertsPanel">
+    <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+    <strong>{{ alerts | length }} alerta(s) operativa(s)</strong>
+    <span class="ms-auto text-muted small">Ver detalle <i class="bi bi-chevron-down"></i></span>
+  </button>
+  <div class="collapse" id="alertsPanel">
+    <div class="card border-danger border-top-0 rounded-top-0 mb-0">
+      <div class="card-body p-2">
+        {% for al in alerts %}
+          <div class="d-flex align-items-start gap-2 py-1 border-bottom last-no-border">
+            {% if al.type == 'danger' %}
+              <i class="bi bi-x-circle-fill text-danger mt-1 flex-shrink-0"></i>
+            {% elif al.type == 'warning' %}
+              <i class="bi bi-exclamation-triangle-fill text-warning mt-1 flex-shrink-0"></i>
+            {% else %}
+              <i class="bi bi-info-circle-fill text-info mt-1 flex-shrink-0"></i>
+            {% endif %}
+            <div>
+              <div class="fw-semibold small">{{ al.msg }}</div>
+              <div class="text-muted" style="font-size:.72rem">{{ al.detail }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- FILTER BAR -->
+<div class="filter-bar mb-2">
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <!-- Week filter -->
+    <div class="d-flex align-items-center gap-1">
+      <span class="filter-label">Semana:</span>
+      <button class="btn btn-xs btn-primary week-btn active" data-week="0" onclick="setWeekFilter(0,this)">Todas</button>
+      {% for wi in range(1, mondays|length + 1) %}
+      <button class="btn btn-xs btn-outline-primary week-btn" data-week="{{ wi }}" onclick="setWeekFilter({{ wi }},this)">S{{ wi }}</button>
+      {% endfor %}
+    </div>
+    <div class="vr d-none d-md-block"></div>
+    <!-- Tech search -->
+    <input type="text" class="form-control form-control-xs" style="width:155px"
+           id="techSearch" placeholder="&#128269; Buscar tecnico..."
+           oninput="filterByTech(this.value)">
+    <div class="vr d-none d-md-block"></div>
+    <!-- Shift filter pills -->
+    <div class="d-flex align-items-center gap-1 flex-wrap">
+      <span class="filter-label">Turno:</span>
+      <button class="btn btn-xs filter-shift-btn active" data-shift="" style="background:#e2e8f0;color:#334155" onclick="setShiftFilter('',this)">Todos</button>
+      <button class="btn btn-xs filter-shift-btn" data-shift="T1" style="background:#3b82f6;color:#fff" onclick="setShiftFilter('T1',this)">T1</button>
+      <button class="btn btn-xs filter-shift-btn" data-shift="T2" style="background:#10b981;color:#fff" onclick="setShiftFilter('T2',this)">T2</button>
+      <button class="btn btn-xs filter-shift-btn" data-shift="TK" style="background:#d97706;color:#fff" onclick="setShiftFilter('TK',this)">TK</button>
+      <button class="btn btn-xs filter-shift-btn" data-shift="DOM" style="background:#8b5cf6;color:#fff" onclick="setShiftFilter('DOM',this)">DOM</button>
+      <button class="btn btn-xs filter-shift-btn" data-shift="NOV" style="background:#ef4444;color:#fff" onclick="setShiftFilter('NOV',this)">Nov</button>
+    </div>
+    <button class="btn btn-xs btn-outline-secondary ms-auto" onclick="resetFilters()">
+      <i class="bi bi-x-circle me-1"></i>Reset
+    </button>
   </div>
 </div>
 
 <!-- MONTHLY MATRIX -->
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
-    <div class="matrix-container">
+    <div class="matrix-container" id="matrixContainer">
       <table class="matrix-table" id="monthMatrix">
         <thead>
           <!-- Day numbers header -->
-          <tr class="matrix-header-days">
+          <tr class="matrix-header-days" id="matrixHeaderRow">
             <th class="matrix-col-tech">Tecnico</th>
             {% for d in month_days %}
-              <th class="matrix-day-header
+              {% set wk_num = day_to_week.get(d, 0) %}
+              <th class="matrix-day-header col-week-{{ wk_num }}
                          {% if is_holiday_map[d] %}matrix-day-special{% endif %}
                          {% if d == today %}matrix-day-today{% endif %}"
-                  title="{{ holiday_name_map[d] if holiday_name_map[d] else '' }}">
+                  data-week="{{ wk_num }}"
+                  title="{% if holiday_name_map[d] %}{{ holiday_name_map[d] }}{% endif %}">
                 <div class="matrix-day-num">{{ d.day }}</div>
                 <div class="matrix-day-ltr">{{ d | day_initial }}</div>
                 {% if is_holiday_map[d] %}
@@ -126,83 +162,146 @@
               </th>
             {% endfor %}
           </tr>
-          <!-- T2 per day row -->
-          <tr class="matrix-summary-row">
-            <td class="matrix-col-tech text-muted ps-2" style="font-size:.7rem">T2</td>
+          <!-- T2 per day summary row -->
+          <tr class="matrix-summary-row" id="matrixSummaryRow">
+            <td class="matrix-col-tech ps-2" style="font-size:.68rem;color:#94a3b8;font-weight:600">T2</td>
             {% for d in month_days %}
+              {% set wk_num = day_to_week.get(d, 0) %}
               {% set t2v = daily_t2[d] %}
-              <td class="matrix-summary-cell
+              <td class="matrix-summary-cell col-week-{{ wk_num }}
                          {% if not is_holiday_map[d] and t2v < min_t2 %}t2-low-cell{% elif is_holiday_map[d] %}matrix-day-special{% else %}t2-ok-cell{% endif %}"
+                  data-week="{{ wk_num }}"
                   title="T2 dia {{ d.day }}: {{ t2v }}">
-                {{ t2v if not is_holiday_map[d] else '--' }}
+                {% if not is_holiday_map[d] %}{{ t2v }}{% else %}--{% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          <!-- Ticket per day summary row -->
+          <tr class="matrix-summary-row" id="matrixTicketRow">
+            <td class="matrix-col-tech ps-2" style="font-size:.68rem;color:#94a3b8;font-weight:600">TK</td>
+            {% for d in month_days %}
+              {% set wk_num = day_to_week.get(d, 0) %}
+              {% set tkv = daily_tickets[d] %}
+              <td class="matrix-summary-cell col-week-{{ wk_num }}"
+                  data-week="{{ wk_num }}"
+                  style="{% if tkv > 0 and d.weekday() < 5 %}background:#fff7ed;color:#92400e;font-weight:700{% else %}color:#94a3b8{% endif %}"
+                  title="Tickets dia {{ d.day }}: {{ tkv }}">
+                {% if d.weekday() < 5 and not is_holiday_map[d] %}{{ tkv if tkv > 0 else '' }}{% else %}--{% endif %}
               </td>
             {% endfor %}
           </tr>
         </thead>
-        <tbody>
+        <tbody id="matrixBody">
           {% for row in rows %}
+            {# Compute row display metrics for shift filter #}
+            {% set ns = namespace(has_t2=false, has_tk=false, has_dom=false, has_nov=false) %}
+            {% for cell in row.cells %}
+              {% if cell.shift == 'T2' %}{% set ns.has_t2 = true %}{% endif %}
+              {% if cell.is_ticket and cell.shift == 'T1' %}{% set ns.has_tk = true %}{% endif %}
+              {% if cell.shift == 'D' %}{% set ns.has_dom = true %}{% endif %}
+              {% if cell.shift in novedades_types %}{% set ns.has_nov = true %}{% endif %}
+            {% endfor %}
+
             <tr class="matrix-row"
                 data-tech-id="{{ row.tech.id }}"
-                data-tech-name="{{ row.tech.name }}">
-              <!-- Tech name -->
+                data-tech-name="{{ row.tech.name }}"
+                data-has-t1="true"
+                data-has-t2="{{ 'true' if ns.has_t2 else 'false' }}"
+                data-has-tk="{{ 'true' if ns.has_tk else 'false' }}"
+                data-has-dom="{{ 'true' if ns.has_dom else 'false' }}"
+                data-has-nov="{{ 'true' if ns.has_nov else 'false' }}">
+
+              <!-- Tech name column -->
               <td class="matrix-col-tech ps-2">
-                <span class="tech-name-text">{{ row.tech.name }}</span>
+                <span class="tech-name-text" title="{{ row.tech.name }}">{{ row.tech.name }}</span>
                 {% if row.tech.fixed_shift %}
-                  <span class="badge bg-secondary ms-1" style="font-size:.55rem">{{ row.tech.fixed_shift }}</span>
+                  <span class="badge ms-1" style="font-size:.52rem;background:{% if row.tech.fixed_shift == 'T1' %}#3b82f6{% else %}#10b981{% endif %}">
+                    {{ row.tech.fixed_shift }}
+                  </span>
+                {% endif %}
+                {% if row.tech.tickets_only %}
+                  <span class="badge ms-1" style="font-size:.52rem;background:#d97706">TK</span>
                 {% endif %}
               </td>
+
               <!-- Day cells -->
               {% for i in range(days_in_month) %}
                 {% set d = month_days[i] %}
                 {% set cell = row.cells[i] %}
-                <td class="matrix-cell
+                {% set wk_num = day_to_week.get(d, 0) %}
+
+                {# Determine badge display #}
+                {% if cell.is_ticket and cell.shift == 'T1' %}
+                  {% set badge_text = 'TK' %}
+                  {% set badge_color = '#d97706' %}
+                  {% set cell_shift_key = 'TK' %}
+                {% elif cell.shift == 'D' and is_holiday_map[d] and d.weekday() != 6 %}
+                  {% set badge_text = 'FEST' %}
+                  {% set badge_color = '#7c3aed' %}
+                  {% set cell_shift_key = 'DOM' %}
+                {% elif cell.shift == 'D' %}
+                  {% set badge_text = 'DOM' %}
+                  {% set badge_color = '#8b5cf6' %}
+                  {% set cell_shift_key = 'DOM' %}
+                {% elif cell.shift == '--' %}
+                  {% set badge_text = '' %}
+                  {% set badge_color = '#e5e7eb' %}
+                  {% set cell_shift_key = '' %}
+                {% else %}
+                  {% set badge_text = cell.shift %}
+                  {% set badge_color = cell.color %}
+                  {% set cell_shift_key = cell.shift %}
+                {% endif %}
+
+                <td class="matrix-cell col-week-{{ wk_num }}
                            {% if is_holiday_map[d] %}matrix-cell-special{% endif %}
                            {% if d == today %}matrix-cell-today{% endif %}"
-                    style="background-color: {{ cell.color }}22"
+                    data-week="{{ wk_num }}"
+                    data-cell-shift="{{ cell_shift_key }}"
+                    style="background-color:{{ badge_color }}18"
                     {% if not ms or not ms.is_locked %}
-                    x-data="{ open: false }"
-                    @click.outside="open = false"
+                    x-data="{ open: false }" @click.outside="open = false"
                     {% endif %}
                     data-date="{{ d.isoformat() }}"
                     data-cell-id="{{ cell.id or '' }}"
-                    title="{{ row.tech.name }} - {{ d | date_fmt }}: {{ cell.label }}">
+                    title="{{ row.tech.name }} {{ d.day }}/{{ month }}: {{ badge_text }}{% if cell.is_manual %} *manual{% endif %}">
 
                   {% if cell.id and (not ms or not ms.is_locked) %}
                     <div @click="open = !open" class="matrix-badge-wrap" style="cursor:pointer">
-                      <span class="matrix-badge"
-                            style="background-color:{{ cell.color }}"
-                            id="badge-{{ cell.id }}">
-                        {{ cell.shift }}
-                      </span>
-                      {% if cell.is_ticket %}
-                        <i class="bi bi-ticket-detailed matrix-ticket-icon"></i>
-                      {% endif %}
+                      <span class="matrix-badge" style="background:{{ badge_color }}"
+                            id="badge-{{ cell.id }}">{{ badge_text }}</span>
                       {% if cell.is_manual %}
-                        <i class="bi bi-pencil-fill matrix-manual-icon"></i>
+                        <i class="bi bi-pencil-fill matrix-manual-icon" title="Edicion manual"></i>
                       {% endif %}
                     </div>
                     <!-- Shift picker -->
                     <div x-show="open" @click.stop class="matrix-picker shadow-lg">
-                      <div class="matrix-picker-header">{{ row.tech.name }} — {{ d.day }}/{{ month }}</div>
+                      <div class="matrix-picker-header">{{ row.tech.name }} &mdash; {{ d.day }}/{{ month }}</div>
                       <div class="matrix-picker-grid">
+                        {% if cell.shift == 'T1' %}
+                        <button class="matrix-picker-btn picker-ticket-btn"
+                                onclick="toggleTicketCell({{ cell.id }}, this)"
+                                @click="open = false">
+                          <span class="badge me-1" style="background:#d97706;font-size:.62rem">TK</span>
+                          {% if cell.is_ticket %}Quitar ticket{% else %}Marcar como Ticket{% endif %}
+                        </button>
+                        <div class="matrix-picker-divider"></div>
+                        {% endif %}
                         {% for s in all_shifts %}
                           <button class="matrix-picker-btn"
                                   style="border-left:3px solid {{ shift_colors[s] }}"
                                   onclick="updateShift({{ cell.id }}, '{{ s }}', this)"
                                   @click="open = false">
-                            <span class="badge me-1" style="background:{{ shift_colors[s] }};font-size:.65rem">{{ s }}</span>
+                            <span class="badge me-1" style="background:{{ shift_colors[s] }};font-size:.62rem">{{ s }}</span>
                             {{ shift_labels[s] }}
                           </button>
                         {% endfor %}
                       </div>
                     </div>
                   {% else %}
-                    <span class="matrix-badge"
-                          style="background-color:{{ cell.color }}">
-                      {{ cell.shift }}
-                    </span>
-                    {% if cell.is_ticket %}
-                      <i class="bi bi-ticket-detailed matrix-ticket-icon"></i>
+                    <span class="matrix-badge" style="background:{{ badge_color }}">{{ badge_text }}</span>
+                    {% if cell.is_manual %}
+                      <i class="bi bi-pencil-fill matrix-manual-icon"></i>
                     {% endif %}
                   {% endif %}
                 </td>
@@ -216,19 +315,32 @@
 </div>
 
 <!-- LEGEND -->
-<div class="d-flex flex-wrap gap-1 mt-3 align-items-center">
-  <small class="text-muted me-2">Leyenda:</small>
-  {% for shift, color in shift_colors.items() %}
-    <span class="badge" style="background-color:{{ color }};font-size:.7rem">{{ shift }}</span>
+<div class="d-flex flex-wrap gap-1 mt-2 align-items-center">
+  <small class="text-muted me-1">Leyenda:</small>
+  <span class="matrix-badge" style="background:#3b82f6">T1</span>
+  <span class="matrix-badge" style="background:#10b981">T2</span>
+  <span class="matrix-badge" style="background:#d97706">TK</span>
+  <span class="matrix-badge" style="background:#6b7280">DESC</span>
+  <span class="matrix-badge" style="background:#8b5cf6">DOM</span>
+  <span class="matrix-badge" style="background:#7c3aed">FEST</span>
+  {% for ntype in novedades_types %}
+    <span class="matrix-badge" style="background:{{ SHIFT_COLORS[ntype] }}">{{ ntype }}</span>
   {% endfor %}
-  <span class="badge bg-light text-dark border ms-2" style="font-size:.7rem">
-    <i class="bi bi-ticket-detailed me-1"></i>= Ticket
-  </span>
-  <span class="badge bg-light text-dark border" style="font-size:.7rem">
-    <i class="bi bi-pencil-fill me-1 text-info"></i>= Edicion manual
-  </span>
+  <span class="ms-2 text-muted small"><i class="bi bi-pencil-fill text-info"></i> = manual</span>
 </div>
 
+{% else %}
+<!-- NOT GENERATED -->
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
+    <h5>{{ month_name }} {{ year }} no generado</h5>
+    <p class="small">Genera el mes para ver el calendario operativo completo.</p>
+    <a href="{{ url_for('generate_month_view') }}" class="btn btn-primary mt-1">
+      <i class="bi bi-magic me-1"></i>Generar {{ month_name }} {{ year }}
+    </a>
+  </div>
+</div>
 {% endif %}
 
 <!-- NOVELTY QUICK MODAL -->
@@ -236,58 +348,57 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <form method="post" action="{{ url_for('novelties') }}">
-        <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Registrar Novedad
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-header py-2">
+          <h6 class="modal-title fw-bold">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-1"></i>Registrar Novedad
+          </h6>
+          <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Tecnico *</label>
-            <select name="technician_id" class="form-select" required>
+        <div class="modal-body py-2">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">Tecnico *</label>
+            <select name="technician_id" class="form-select form-select-sm" required>
               <option value="">-- Seleccionar --</option>
               {% for row in rows %}
                 <option value="{{ row.tech.id }}">{{ row.tech.name }}</option>
               {% endfor %}
             </select>
           </div>
-          <div class="row g-2 mb-3">
+          <div class="row g-2 mb-2">
             <div class="col">
-              <label class="form-label fw-semibold">Desde *</label>
-              <input type="date" name="date_start" class="form-control"
+              <label class="form-label small fw-semibold mb-1">Desde *</label>
+              <input type="date" name="date_start" class="form-control form-control-sm"
                      value="{{ today.isoformat() }}" required>
             </div>
             <div class="col">
-              <label class="form-label fw-semibold">Hasta *</label>
-              <input type="date" name="date_end" class="form-control"
+              <label class="form-label small fw-semibold mb-1">Hasta *</label>
+              <input type="date" name="date_end" class="form-control form-control-sm"
                      value="{{ today.isoformat() }}" required>
             </div>
           </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Tipo *</label>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">Tipo *</label>
             <div class="row g-1">
               {% for ntype in novedades_types %}
                 <div class="col-6">
-                  <div class="form-check border rounded p-2">
+                  <div class="form-check border rounded p-1 px-2">
                     <input class="form-check-input" type="radio"
-                           name="novelty_type" id="nqt_{{ ntype }}"
-                           value="{{ ntype }}" required>
-                    <label class="form-check-label small" for="nqt_{{ ntype }}">
-                      <span class="badge" style="background-color:{{ SHIFT_COLORS[ntype] }}">
-                        {{ SHIFT_LABELS[ntype] }}
-                      </span>
+                           name="novelty_type" id="nqt_{{ ntype }}" value="{{ ntype }}" required>
+                    <label class="form-check-label" for="nqt_{{ ntype }}" style="font-size:.75rem">
+                      <span class="badge" style="background:{{ SHIFT_COLORS[ntype] }}">{{ ntype }}</span>
+                      {{ SHIFT_LABELS[ntype] }}
                     </label>
                   </div>
                 </div>
               {% endfor %}
             </div>
           </div>
-          <input type="text" name="notes" class="form-control" placeholder="Notas (opcional)">
+          <input type="text" name="notes" class="form-control form-control-sm"
+                 placeholder="Notas (opcional)">
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-warning">
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-sm btn-warning">
             <i class="bi bi-check-circle me-1"></i>Registrar
           </button>
         </div>
@@ -295,4 +406,135 @@
     </div>
   </div>
 </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ---- Inline editing ----
+function updateShift(daId, shift, btn) {
+  fetch('/api/assignment/' + daId + '/shift', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({shift: shift})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { alert('Error: ' + data.error); return; }
+    var badge = document.getElementById('badge-' + daId);
+    if (!badge) return;
+    var shiftMap = {
+      'T1':'#3b82f6','T2':'#10b981','D':'#8b5cf6','DESC':'#6b7280',
+      'EPS':'#ef4444','V':'#f59e0b','PERM':'#f97316','CAL':'#dc2626',
+      'INCAP':'#b91c1c','CAP':'#06b6d4','LIC':'#a855f7','AUS':'#ec4899','OTRO':'#9ca3af'
+    };
+    var displayMap = {'D':'DOM'};
+    badge.textContent = displayMap[shift] || shift;
+    badge.style.background = shiftMap[shift] || '#9ca3af';
+    // Update data-cell-shift
+    var cell = badge.closest('td');
+    if (cell) cell.dataset.cellShift = displayMap[shift] || shift;
+  })
+  .catch(e => alert('Error de red: ' + e));
+}
+
+function toggleTicketCell(daId, btn) {
+  fetch('/api/assignment/' + daId + '/ticket', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'}
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) { alert('Error: ' + data.error); return; }
+    var badge = document.getElementById('badge-' + daId);
+    if (!badge) return;
+    if (data.is_ticket) {
+      badge.textContent = 'TK';
+      badge.style.background = '#d97706';
+    } else {
+      badge.textContent = 'T1';
+      badge.style.background = '#3b82f6';
+    }
+    var cell = badge.closest('td');
+    if (cell) cell.dataset.cellShift = data.is_ticket ? 'TK' : 'T1';
+    if (btn) btn.textContent = data.is_ticket ? 'Quitar ticket' : 'Marcar como Ticket';
+  })
+  .catch(e => alert('Error de red: ' + e));
+}
+
+// ---- Filters ----
+var _activeWeek = 0;
+var _activeTech = '';
+var _activeShift = '';
+
+function setWeekFilter(weekNum, btn) {
+  _activeWeek = weekNum;
+  document.querySelectorAll('.week-btn').forEach(b => b.classList.remove('active', 'btn-primary', 'btn-outline-primary'));
+  document.querySelectorAll('.week-btn').forEach(b => {
+    if (parseInt(b.dataset.week) === weekNum) {
+      b.classList.add('active', 'btn-primary');
+    } else {
+      b.classList.add('btn-outline-primary');
+    }
+  });
+  applyFilters();
+}
+
+function filterByTech(val) {
+  _activeTech = val.toLowerCase().trim();
+  applyFilters();
+}
+
+function setShiftFilter(shift, btn) {
+  _activeShift = shift;
+  document.querySelectorAll('.filter-shift-btn').forEach(b => {
+    b.style.opacity = b.dataset.shift === shift ? '1' : '0.5';
+    b.classList.toggle('active', b.dataset.shift === shift);
+  });
+  applyFilters();
+}
+
+function resetFilters() {
+  _activeWeek = 0;
+  _activeTech = '';
+  _activeShift = '';
+  document.getElementById('techSearch').value = '';
+  document.querySelectorAll('.week-btn').forEach(b => {
+    b.classList.remove('active', 'btn-primary', 'btn-outline-primary');
+    if (parseInt(b.dataset.week) === 0) b.classList.add('active', 'btn-primary');
+    else b.classList.add('btn-outline-primary');
+  });
+  document.querySelectorAll('.filter-shift-btn').forEach(b => {
+    b.style.opacity = b.dataset.shift === '' ? '1' : '0.5';
+    b.classList.toggle('active', b.dataset.shift === '');
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  // Column visibility (week filter)
+  var showAll = _activeWeek === 0;
+  document.querySelectorAll('[data-week]').forEach(el => {
+    var elWeek = parseInt(el.dataset.week);
+    el.style.display = (showAll || elWeek === _activeWeek) ? '' : 'none';
+  });
+  // Tech name column always visible
+  document.querySelectorAll('.matrix-col-tech').forEach(el => el.style.display = '');
+
+  // Row visibility (tech search + shift filter)
+  document.querySelectorAll('.matrix-row').forEach(row => {
+    var name = (row.dataset.techName || '').toLowerCase();
+    var techOk = !_activeTech || name.includes(_activeTech);
+
+    var shiftOk = true;
+    if (_activeShift === 'T1') shiftOk = true; // T1 is default, all rows have it
+    else if (_activeShift === 'T2') shiftOk = row.dataset.hasT2 === 'true';
+    else if (_activeShift === 'TK') shiftOk = row.dataset.hasTk === 'true';
+    else if (_activeShift === 'DOM') shiftOk = row.dataset.hasDom === 'true';
+    else if (_activeShift === 'NOV') shiftOk = row.dataset.hasNov === 'true';
+
+    row.style.display = (techOk && shiftOk) ? '' : 'none';
+  });
+}
+</script>
 {% endblock %}

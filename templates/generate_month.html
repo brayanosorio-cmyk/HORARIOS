@@ -1,126 +1,252 @@
 {% extends "base.html" %}
 {% block title %}Generar Mes{% endblock %}
-{% block title_display %}Generar Mes Completo{% endblock %}
+{% block title_display %}Generar Horario Mensual{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-10">
+<div class="row g-3">
 
-    <!-- ALERT: Colombia holidays are auto-loaded -->
-    <div class="alert alert-success py-2 small mb-3">
-      <i class="bi bi-check-circle-fill me-1"></i>
-      Los <strong>festivos oficiales de Colombia</strong> se cargan automaticamente al generar cada mes.
-      No necesitas agregarlos manualmente.
+  <!-- LEFT: Form -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-primary text-white py-2">
+        <h6 class="mb-0"><i class="bi bi-magic me-2"></i>Configuracion de generacion</h6>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('generate_month_view') }}">
+
+          <!-- Step 1: Month/Year -->
+          <div class="step-section mb-3">
+            <div class="step-label">
+              <span class="step-num">1</span> Selecciona el mes
+            </div>
+            <div class="row g-2">
+              <div class="col">
+                <label class="form-label small fw-semibold">Mes</label>
+                <select name="month" class="form-select form-select-sm" id="monthSel" onchange="updateNovedadesPreview()">
+                  {% for i, mn in enumerate(month_names) %}
+                    <option value="{{ i+1 }}"
+                      {% if i+1 == today.month %}selected{% endif %}>{{ mn }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col">
+                <label class="form-label small fw-semibold">Ano</label>
+                <select name="year" class="form-select form-select-sm" id="yearSel" onchange="updateNovedadesPreview()">
+                  {% for yr in range(today.year - 1, today.year + 3) %}
+                    <option value="{{ yr }}" {% if yr == today.year %}selected{% endif %}>{{ yr }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: T2 + Tickets config -->
+          <div class="step-section mb-3">
+            <div class="step-label">
+              <span class="step-num">2</span> Configuracion de turnos
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Min tecnicos T2 <span class="text-muted">(actual: {{ min_t2 }})</span></label>
+                <input type="number" name="min_t2_override" class="form-control form-control-sm"
+                       placeholder="{{ min_t2 }}" min="1" max="20"
+                       title="Dejar vacio para usar configuracion global">
+                <div class="form-text" style="font-size:.7rem">Dejar vacio = usar config global</div>
+              </div>
+              <div class="col-6">
+                <label class="form-label small fw-semibold">Tecnicos Ticket <span class="text-muted">(actual: {{ ticket_count }})</span></label>
+                <input type="number" name="ticket_count_override" class="form-control form-control-sm"
+                       placeholder="{{ ticket_count }}" min="0" max="15"
+                       title="Dejar vacio para usar configuracion global">
+                <div class="form-text" style="font-size:.7rem">Dejar vacio = usar config global</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: T2 pool (optional) -->
+          <div class="step-section mb-3">
+            <div class="step-label">
+              <span class="step-num">3</span> Pool T2 (opcional)
+              <span class="badge bg-secondary ms-1" style="font-size:.65rem">Se rotan semanalmente</span>
+            </div>
+            <p class="small text-muted mb-2">
+              Selecciona los tecnicos elegibles para T2. Si dejas vacio, el sistema usa rotacion automatica.
+            </p>
+            <div class="tech-selector-grid">
+              {% for tech in technicians %}
+                <div class="form-check tech-check-item">
+                  <input class="form-check-input" type="checkbox"
+                         name="forced_t2_ids" value="{{ tech.id }}"
+                         id="t2_{{ tech.id }}"
+                         {% if tech.fixed_shift == 'T2' %}checked{% endif %}>
+                  <label class="form-check-label small" for="t2_{{ tech.id }}">
+                    {{ tech.name }}
+                    {% if tech.fixed_shift %}<span class="badge ms-1" style="font-size:.55rem;background:#10b981">{{ tech.fixed_shift }}</span>{% endif %}
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+            <div class="d-flex gap-2 mt-1">
+              <button type="button" class="btn btn-xs btn-outline-secondary"
+                      onclick="selectAllT2()">Seleccionar todos</button>
+              <button type="button" class="btn btn-xs btn-outline-secondary"
+                      onclick="clearAllT2()">Limpiar</button>
+            </div>
+          </div>
+
+          <!-- Step 4: Ticket techs (optional) -->
+          <div class="step-section mb-3">
+            <div class="step-label">
+              <span class="step-num">4</span> Tecnicos Ticket (opcional)
+              <span class="badge bg-secondary ms-1" style="font-size:.65rem">Lun-Vie solo tickets</span>
+            </div>
+            <p class="small text-muted mb-2">
+              Selecciona quienes atenderan solo tickets. Si dejas vacio, el sistema rota automaticamente.
+            </p>
+            <div class="tech-selector-grid">
+              {% for tech in technicians %}
+                <div class="form-check tech-check-item">
+                  <input class="form-check-input" type="checkbox"
+                         name="forced_ticket_ids" value="{{ tech.id }}"
+                         id="tk_{{ tech.id }}"
+                         {% if tech.tickets_only %}checked{% endif %}>
+                  <label class="form-check-label small" for="tk_{{ tech.id }}">
+                    {{ tech.name }}
+                    {% if tech.tickets_only %}<span class="badge ms-1" style="font-size:.55rem;background:#d97706">TK</span>{% endif %}
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Force regenerate -->
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="force_regenerate" id="forceChk">
+            <label class="form-check-label small" for="forceChk">
+              <strong>Forzar regeneracion</strong>
+              <span class="text-muted">(sobreescribe horario existente)</span>
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-magic me-2"></i>Generar horario mensual
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Info panels -->
+  <div class="col-lg-5">
+
+    <!-- Novedades del mes -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header py-2 d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+        <span class="fw-semibold small">Novedades activas</span>
+        <span class="badge bg-warning text-dark ms-auto" id="novCount">{{ active_novelties | length }}</span>
+      </div>
+      <div class="card-body p-0">
+        {% if active_novelties %}
+          <div style="max-height:260px;overflow-y:auto">
+            <table class="table table-sm mb-0 small" style="font-size:.75rem">
+              <thead class="table-light">
+                <tr>
+                  <th>Tecnico</th>
+                  <th>Tipo</th>
+                  <th>Desde</th>
+                  <th>Hasta</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for nov in active_novelties %}
+                  <tr class="novelty-row"
+                      data-month-start="{{ nov.date_start.month }}"
+                      data-month-end="{{ nov.date_end.month }}"
+                      data-year-start="{{ nov.date_start.year }}"
+                      data-year-end="{{ nov.date_end.year }}">
+                    <td>{{ nov.technician.name if nov.technician else '?' }}</td>
+                    <td>
+                      <span class="badge" style="background:{{ SHIFT_COLORS.get(nov.novelty_type,'#9ca3af') }};font-size:.65rem">
+                        {{ nov.novelty_type }}
+                      </span>
+                    </td>
+                    <td>{{ nov.date_start | date_fmt }}</td>
+                    <td>{{ nov.date_end | date_fmt }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center text-muted py-3 small">
+            <i class="bi bi-check-circle-fill text-success me-1"></i>Sin novedades activas
+          </div>
+        {% endif %}
+        <div class="px-2 py-1 border-top">
+          <a href="{{ url_for('novelties') }}" class="btn btn-xs btn-outline-warning w-100">
+            <i class="bi bi-plus-circle me-1"></i>Agregar novedad antes de generar
+          </a>
+        </div>
+      </div>
     </div>
 
-    <form method="post">
-      <!-- MONTH SELECTOR -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-white">
-          <span class="fw-semibold"><i class="bi bi-calendar3 me-2 text-primary"></i>Mes a generar</span>
-        </div>
-        <div class="card-body">
-          <div class="row g-3 align-items-end">
-            <div class="col-md-3">
-              <label class="form-label fw-semibold">Ano *</label>
-              <select name="year" class="form-select" required>
-                {% for y in range(today.year - 1, today.year + 3) %}
-                  <option value="{{ y }}" {{ 'selected' if y == today.year }}>{{ y }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label fw-semibold">Mes *</label>
-              <select name="month" class="form-select" required>
-                {% for i, mn in enumerate(month_names) %}
-                  <option value="{{ i + 1 }}" {{ 'selected' if (i + 1) == today.month }}>
-                    {{ mn }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-5">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="force_regenerate" id="forceRegen">
-                <label class="form-check-label" for="forceRegen">
-                  Forzar regeneracion (incluyendo semanas compartidas)
-                </label>
-              </div>
-              <div class="form-text mt-1">
-                Las semanas que ya existen (compartidas con otro mes) se omiten automaticamente
-                a menos que actives esta opcion.
-              </div>
-            </div>
-          </div>
+    <!-- Colombia holidays preview -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-header py-2 d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-heart text-danger"></i>
+        <span class="fw-semibold small">Festivos Colombia {{ today.year }}</span>
+      </div>
+      <div class="card-body p-0">
+        <div style="max-height:200px;overflow-y:auto">
+          <table class="table table-sm mb-0 small" style="font-size:.73rem">
+            <tbody>
+              {% for d, name in preview_holidays.items() | sort %}
+                <tr>
+                  <td class="ps-2 text-muted">{{ d | date_fmt }}</td>
+                  <td class="fw-semibold">{{ name }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       </div>
+    </div>
 
-      <!-- MANUAL T2 -->
-      <div class="card border-0 shadow-sm mb-3" x-data="{ exp: false }">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center"
-             style="cursor:pointer" @click="exp = !exp">
-          <span class="fw-semibold">
-            <i class="bi bi-person-check me-2 text-success"></i>
-            T2 manuales para este mes
-          </span>
-          <i class="bi" :class="exp ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
-        </div>
-        <div class="card-body" x-show="exp" x-transition>
-          <p class="small text-muted mb-2">
-            Estos tecnicos seran T2 en TODAS las semanas del mes generado.
-          </p>
-          <div class="row g-2">
-            {% for tech in technicians %}
-              {% if not tech.tickets_only %}
-                <div class="col-md-3 col-6">
-                  <div class="form-check border rounded p-2">
-                    <input class="form-check-input" type="checkbox"
-                           name="forced_t2_ids" value="{{ tech.id }}"
-                           id="mt2_{{ tech.id }}"
-                           {% if tech.fixed_shift == 'T2' %}checked disabled{% endif %}>
-                    <label class="form-check-label small" for="mt2_{{ tech.id }}">
-                      {{ tech.name }}
-                      {% if tech.fixed_shift == 'T2' %}
-                        <span class="badge bg-success ms-1" style="font-size:.6rem">FIJO</span>
-                      {% endif %}
-                    </label>
-                  </div>
-                </div>
-              {% endif %}
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-
-      <!-- COLOMBIA HOLIDAYS PREVIEW -->
-      <div class="card border-0 shadow-sm mb-3" x-data="{ exp: false }">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center"
-             style="cursor:pointer" @click="exp = !exp">
-          <span class="fw-semibold">
-            <i class="bi bi-calendar-heart me-2 text-danger"></i>
-            Festivos Colombia {{ today.year }} (auto-cargados)
-          </span>
-          <span class="badge bg-secondary">{{ preview_holidays | length }}</span>
-        </div>
-        <div class="card-body" x-show="exp" x-transition>
-          <div class="row g-1 small">
-            {% for d, name in preview_holidays.items() | sort %}
-              <div class="col-md-4">
-                <span class="badge bg-light text-dark border me-1">{{ d | date_fmt }}</span>
-                {{ name }}
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary px-4">
-          <i class="bi bi-magic me-2"></i>Generar mes completo
-        </button>
-        <a href="{{ url_for('month_view') }}" class="btn btn-outline-secondary">Cancelar</a>
-      </div>
-    </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selectAllT2() {
+  document.querySelectorAll('[name="forced_t2_ids"]').forEach(cb => cb.checked = true);
+}
+function clearAllT2() {
+  document.querySelectorAll('[name="forced_t2_ids"]').forEach(cb => {
+    if (cb.closest('label') && !cb.closest('label').querySelector('.badge')) cb.checked = false;
+    else cb.checked = false;
+  });
+}
+function updateNovedadesPreview() {
+  var month = parseInt(document.getElementById('monthSel').value);
+  var year  = parseInt(document.getElementById('yearSel').value);
+  var rows  = document.querySelectorAll('.novelty-row');
+  var count = 0;
+  rows.forEach(function(row) {
+    var ms = parseInt(row.dataset.monthStart);
+    var me = parseInt(row.dataset.monthEnd);
+    var ys = parseInt(row.dataset.yearStart);
+    var ye = parseInt(row.dataset.yearEnd);
+    var startInMonth = (ys < year) || (ys === year && ms <= month);
+    var endInMonth   = (ye > year) || (ye === year && me >= month);
+    var visible = startInMonth && endInMonth;
+    row.style.display = visible ? '' : 'none';
+    if (visible) count++;
+  });
+  document.getElementById('novCount').textContent = count;
+}
+// Run on load
+document.addEventListener('DOMContentLoaded', updateNovedadesPreview);
+</script>
 {% endblock %}
