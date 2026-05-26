@@ -489,8 +489,10 @@ def technicians():
                            all_shifts=[SHIFT_T1, SHIFT_T2])
 
 
-@app.route("/technicians/add", methods=["POST"])
+@app.route("/technicians/add", methods=["GET", "POST"])
 def add_technician():
+    if request.method == "GET":
+        return redirect(url_for("technicians"))
     name        = request.form.get("name", "").strip()
     code        = request.form.get("code", "").strip() or None
     supervisor  = request.form.get("supervisor", "").strip() or None
