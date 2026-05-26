@@ -1,0 +1,791 @@
+/* ============================================================
+   SOPORTE FTTH -- Turnos v2 Stylesheet
+   ============================================================ */
+
+:root {
+  --sidebar-w: 220px;
+  --sidebar-bg: #1e293b;
+  --sidebar-hover: #334155;
+  --sidebar-active: #3b82f6;
+  --topbar-h: 52px;
+  --content-bg: #f8fafc;
+  --card-radius: 12px;
+}
+
+/* ---- RESET ---- */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--content-bg);
+  font-size: 0.875rem;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 100vh;
+  width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  z-index: 1050;
+  transition: transform 0.25s ease, width 0.25s ease;
+  overflow: hidden;
+}
+
+.sidebar-closed {
+  transform: translateX(calc(-1 * var(--sidebar-w)));
+}
+.sidebar-open {
+  transform: translateX(0);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  padding: 18px 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  border-bottom: 1px solid #334155;
+  white-space: nowrap;
+  gap: 8px;
+}
+
+.sidebar-nav {
+  padding: 10px 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  color: #94a3b8;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  font-size: 0.85rem;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-link:hover {
+  background: var(--sidebar-hover);
+  color: #e2e8f0;
+}
+
+.sidebar-link.active {
+  background: rgba(59,130,246,0.15);
+  color: #93c5fd;
+  border-left-color: var(--sidebar-active);
+}
+
+.sidebar-link i {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.sidebar-label {
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: #334155;
+  margin: 8px 0;
+}
+
+/* ============================================================
+   MAIN WRAPPER + TOPBAR
+   ============================================================ */
+.main-wrapper {
+  min-height: 100vh;
+  transition: margin-left 0.25s ease;
+}
+
+.main-shifted {
+  margin-left: var(--sidebar-w);
+}
+
+.topbar {
+  height: var(--topbar-h);
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+.topbar-toggle {
+  color: #64748b;
+  padding: 4px 8px;
+}
+
+.topbar-title {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.page-content {
+  padding: 20px 16px 40px;
+}
+
+/* ============================================================
+   KPI CARDS
+   ============================================================ */
+.kpi-card {
+  border-radius: var(--card-radius);
+  padding: 18px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.kpi-icon { font-size: 1.6rem; opacity: .85; }
+.kpi-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+.kpi-label { font-size: .75rem; opacity: .85; }
+
+.kpi-blue   { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.kpi-green  { background: linear-gradient(135deg, #10b981, #059669); }
+.kpi-red    { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.kpi-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.kpi-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.kpi-gray   { background: linear-gradient(135deg, #6b7280, #4b5563); }
+
+/* ============================================================
+   SCHEDULE TABLE
+   ============================================================ */
+.schedule-table-container {
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+}
+
+.schedule-table {
+  font-size: 0.78rem;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.schedule-table th, .schedule-table td {
+  vertical-align: middle;
+}
+
+.sticky-col {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 10;
+  box-shadow: 2px 0 4px rgba(0,0,0,.06);
+}
+
+thead .sticky-col {
+  background: #1e293b;
+  z-index: 11;
+}
+
+.schedule-cell {
+  position: relative;
+  cursor: default;
+  transition: background 0.1s;
+}
+
+.cell-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.cell-badge:hover {
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+
+/* SHIFT PICKER DROPDOWN */
+.shift-picker {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 10px;
+  z-index: 500;
+  min-width: 180px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+
+.shift-picker-header {
+  padding: 8px 12px;
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #6b7280;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.shift-picker-btn {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  font-size: .78rem;
+  cursor: pointer;
+  color: #1e293b;
+  transition: background 0.1s;
+}
+
+.shift-picker-btn:hover { background: #f1f5f9; }
+.shift-picker-btn.active-ticket { color: #d97706; }
+
+.shift-picker-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 2px 0;
+}
+
+/* ============================================================
+   MONTHLY CALENDAR
+   ============================================================ */
+.month-cell {
+  min-height: 68px;
+  padding: 4px;
+  border: 1px solid #e5e7eb;
+  font-size: .75rem;
+  position: relative;
+  background: #fff;
+  transition: background .1s;
+}
+
+.month-cell:hover { background: #f8fafc; }
+
+.month-empty {
+  background: #f8fafc;
+  border-color: #f1f5f9;
+}
+
+.month-special {
+  background: #faf5ff;
+}
+
+.month-today {
+  background: #eff6ff !important;
+  border-color: #3b82f6 !important;
+}
+
+.month-noweek {
+  opacity: .5;
+}
+
+.month-day-num {
+  font-weight: 700;
+  color: #374151;
+  font-size: .8rem;
+}
+
+.month-t2-badge {
+  margin-top: 4px;
+  font-size: .7rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 5px;
+  display: inline-block;
+}
+
+.t2-ok  { background: #d1fae5; color: #065f46; }
+.t2-low { background: #fee2e2; color: #991b1b; }
+.t2-na  { background: #f3f4f6; color: #9ca3af; }
+
+.month-special-label {
+  position: absolute;
+  top: 3px; right: 3px;
+  font-size: .6rem;
+  background: #8b5cf6;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* ============================================================
+   NOVELTIES CARDS
+   ============================================================ */
+.badge-nov {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 190px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+.card { border-radius: var(--card-radius) !important; }
+.card-header { border-radius: var(--card-radius) var(--card-radius) 0 0 !important; }
+
+a { text-decoration: none; }
+
+/* Mobile: auto-close sidebar */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 200px; }
+  .main-shifted { margin-left: 0; }
+  .sidebar-open { box-shadow: 4px 0 24px rgba(0,0,0,.25); }
+  .page-content { padding: 12px 10px 40px; }
+}
+
+/* ============================================================
+   MONTHLY MATRIX  (added v3)
+   ============================================================ */
+
+.matrix-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.matrix-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  min-width: max-content;
+}
+
+/* Tech name column */
+.matrix-col-tech {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 20;
+  min-width: 160px;
+  max-width: 185px;
+  padding: 4px 8px;
+  border-right: 2px solid #e2e8f0;
+  box-shadow: 2px 0 5px rgba(0,0,0,.06);
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* Day header */
+.matrix-header-days th {
+  background: #1e293b;
+  color: #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  padding: 3px 4px;
+  text-align: center;
+  border: 1px solid #334155;
+  vertical-align: middle;
+}
+
+.matrix-header-days .matrix-col-tech {
+  background: #1e293b;
+  color: #e2e8f0;
+  z-index: 25;
+}
+
+.matrix-day-header {
+  min-width: 44px;
+  cursor: default;
+}
+
+.matrix-day-header.matrix-day-special {
+  background: #4c1d95 !important;
+  color: #ddd6fe !important;
+}
+
+.matrix-day-header.matrix-day-today {
+  background: #1d4ed8 !important;
+  color: #bfdbfe !important;
+}
+
+.matrix-day-num {
+  font-size: .8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.matrix-day-ltr {
+  font-size: .62rem;
+  opacity: .75;
+}
+
+.matrix-day-flag {
+  font-size: .55rem;
+  background: rgba(255,255,255,.2);
+  border-radius: 2px;
+  padding: 0 2px;
+  display: inline-block;
+  margin-top: 1px;
+}
+
+/* Summary row (T2 per day) */
+.matrix-summary-row {
+  position: sticky;
+  top: 44px;  /* below header */
+  z-index: 14;
+  background: #f8fafc;
+}
+
+.matrix-summary-row .matrix-col-tech {
+  background: #f8fafc;
+  z-index: 20;
+  font-size: .7rem;
+}
+
+.matrix-summary-cell {
+  text-align: center;
+  padding: 2px 3px;
+  font-weight: 700;
+  font-size: .7rem;
+  border: 1px solid #e5e7eb;
+}
+
+.t2-low-cell  { background: #fee2e2; color: #991b1b; }
+.t2-ok-cell   { background: #d1fae5; color: #065f46; }
+.matrix-day-special { background: #f5f3ff; }
+
+/* Tech rows */
+.matrix-row:hover .matrix-col-tech { background: #eff6ff; }
+.matrix-row:hover td { background-color: rgba(59,130,246,.04); }
+
+/* Individual cells */
+.matrix-cell {
+  min-width: 44px;
+  padding: 2px 2px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  vertical-align: middle;
+  position: relative;
+  transition: background 0.1s;
+}
+
+.matrix-cell-special {
+  background: #f5f3ff !important;
+}
+
+.matrix-cell-today {
+  border: 2px solid #3b82f6 !important;
+}
+
+.matrix-badge-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 4px;
+  padding: 1px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.matrix-badge-wrap:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  z-index: 2;
+  position: relative;
+}
+
+.matrix-badge {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.matrix-ticket-icon {
+  font-size: .5rem;
+  color: #d97706;
+}
+
+.matrix-manual-icon {
+  font-size: .48rem;
+  color: #06b6d4;
+}
+
+/* Matrix picker dropdown */
+.matrix-picker {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 10px;
+  z-index: 600;
+  min-width: 200px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+
+.matrix-picker-header {
+  padding: 7px 12px;
+  font-size: .7rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.matrix-picker-grid {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.matrix-picker-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: .75rem;
+  cursor: pointer;
+  color: #1e293b;
+  transition: background 0.1s;
+}
+
+.matrix-picker-btn:hover { background: #f1f5f9; }
+
+/* Mini stat cards */
+.mini-stat {
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.mini-val { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+.mini-lbl { font-size: .7rem; opacity: .85; }
+.mini-blue   { background: linear-gradient(135deg,#3b82f6,#2563eb); }
+.mini-green  { background: linear-gradient(135deg,#10b981,#059669); }
+.mini-red    { background: linear-gradient(135deg,#ef4444,#dc2626); }
+.mini-purple { background: linear-gradient(135deg,#8b5cf6,#7c3aed); }
+.mini-orange { background: linear-gradient(135deg,#f59e0b,#d97706); }
+
+.tech-name-text {
+  max-width: 155px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+
+/* ============================================================
+   v5 ADDITIONS: Filter bar, Alerts panel, Badge compact, Step UI
+   ============================================================ */
+
+/* ---- Compact button variant ---- */
+.btn-xs {
+  padding: 2px 8px;
+  font-size: .72rem;
+  border-radius: 5px;
+  line-height: 1.4;
+}
+
+/* ---- Filter bar ---- */
+.filter-bar {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+
+.filter-label {
+  font-size: .7rem;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.week-btn {
+  min-width: 34px;
+  font-size: .7rem;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+
+.week-btn.active {
+  font-weight: 700;
+}
+
+.filter-shift-btn {
+  font-size: .7rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: none;
+  opacity: 0.55;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.filter-shift-btn.active,
+.filter-shift-btn:hover {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.form-control-xs {
+  padding: 3px 8px;
+  font-size: .72rem;
+  border-radius: 6px;
+  height: auto;
+}
+
+/* ---- Alerts panel ---- */
+.last-no-border:last-child {
+  border-bottom: 0 !important;
+}
+
+/* ---- Step UI in generate_month ---- */
+.step-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.step-label {
+  font-weight: 700;
+  font-size: .82rem;
+  color: #1e293b;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tech-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 3px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: #fff;
+}
+
+.tech-check-item {
+  margin: 0;
+  padding: 2px 0;
+}
+
+.tech-check-item .form-check-label {
+  font-size: .75rem;
+  cursor: pointer;
+}
+
+/* ---- Matrix badge: larger and clearer ---- */
+.matrix-badge {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  min-width: 28px;
+  text-align: center;
+}
+
+/* Unassigned cell badge */
+.matrix-badge-empty {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
+/* Picker ticket button */
+.picker-ticket-btn {
+  background: #fff7ed;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.picker-ticket-btn:hover {
+  background: #fef3c7;
+}
+
+.matrix-picker-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 2px 0;
+}
+
+/* ---- Summary rows (TK row) ---- */
+.matrix-summary-row td {
+  position: sticky;
+  background: #f8fafc;
+}
+
+/* Week transition: subtle left border to visually separate weeks */
+.matrix-cell[data-week="1"],
+.matrix-day-header[data-week="1"],
+.matrix-summary-cell[data-week="1"] {
+  border-left: 2px solid #cbd5e1 !important;
+}
+
+/* Improve matrix readability */
+.matrix-row:nth-child(even) .matrix-col-tech {
+  background: #f8fafc;
+}
+
+.matrix-row:nth-child(even):hover .matrix-col-tech {
+  background: #eff6ff;
+}
+
+/* ---- Mobile adjustments ---- */
+@media (max-width: 768px) {
+  .filter-bar .vr { display: none; }
+  .filter-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .tech-selector-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
