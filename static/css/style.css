@@ -356,3 +356,245 @@ a { text-decoration: none; }
   .sidebar-open { box-shadow: 4px 0 24px rgba(0,0,0,.25); }
   .page-content { padding: 12px 10px 40px; }
 }
+
+/* ============================================================
+   MONTHLY MATRIX  (added v3)
+   ============================================================ */
+
+.matrix-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.matrix-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  min-width: max-content;
+}
+
+/* Tech name column */
+.matrix-col-tech {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 20;
+  min-width: 160px;
+  max-width: 185px;
+  padding: 4px 8px;
+  border-right: 2px solid #e2e8f0;
+  box-shadow: 2px 0 5px rgba(0,0,0,.06);
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* Day header */
+.matrix-header-days th {
+  background: #1e293b;
+  color: #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  padding: 3px 4px;
+  text-align: center;
+  border: 1px solid #334155;
+  vertical-align: middle;
+}
+
+.matrix-header-days .matrix-col-tech {
+  background: #1e293b;
+  color: #e2e8f0;
+  z-index: 25;
+}
+
+.matrix-day-header {
+  min-width: 44px;
+  cursor: default;
+}
+
+.matrix-day-header.matrix-day-special {
+  background: #4c1d95 !important;
+  color: #ddd6fe !important;
+}
+
+.matrix-day-header.matrix-day-today {
+  background: #1d4ed8 !important;
+  color: #bfdbfe !important;
+}
+
+.matrix-day-num {
+  font-size: .8rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.matrix-day-ltr {
+  font-size: .62rem;
+  opacity: .75;
+}
+
+.matrix-day-flag {
+  font-size: .55rem;
+  background: rgba(255,255,255,.2);
+  border-radius: 2px;
+  padding: 0 2px;
+  display: inline-block;
+  margin-top: 1px;
+}
+
+/* Summary row (T2 per day) */
+.matrix-summary-row {
+  position: sticky;
+  top: 44px;  /* below header */
+  z-index: 14;
+  background: #f8fafc;
+}
+
+.matrix-summary-row .matrix-col-tech {
+  background: #f8fafc;
+  z-index: 20;
+  font-size: .7rem;
+}
+
+.matrix-summary-cell {
+  text-align: center;
+  padding: 2px 3px;
+  font-weight: 700;
+  font-size: .7rem;
+  border: 1px solid #e5e7eb;
+}
+
+.t2-low-cell  { background: #fee2e2; color: #991b1b; }
+.t2-ok-cell   { background: #d1fae5; color: #065f46; }
+.matrix-day-special { background: #f5f3ff; }
+
+/* Tech rows */
+.matrix-row:hover .matrix-col-tech { background: #eff6ff; }
+.matrix-row:hover td { background-color: rgba(59,130,246,.04); }
+
+/* Individual cells */
+.matrix-cell {
+  min-width: 44px;
+  padding: 2px 2px;
+  text-align: center;
+  border: 1px solid #e5e7eb;
+  vertical-align: middle;
+  position: relative;
+  transition: background 0.1s;
+}
+
+.matrix-cell-special {
+  background: #f5f3ff !important;
+}
+
+.matrix-cell-today {
+  border: 2px solid #3b82f6 !important;
+}
+
+.matrix-badge-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 4px;
+  padding: 1px;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.matrix-badge-wrap:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  z-index: 2;
+  position: relative;
+}
+
+.matrix-badge {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.matrix-ticket-icon {
+  font-size: .5rem;
+  color: #d97706;
+}
+
+.matrix-manual-icon {
+  font-size: .48rem;
+  color: #06b6d4;
+}
+
+/* Matrix picker dropdown */
+.matrix-picker {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 10px;
+  z-index: 600;
+  min-width: 200px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+
+.matrix-picker-header {
+  padding: 7px 12px;
+  font-size: .7rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f8fafc;
+  border-bottom: 1px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.matrix-picker-grid {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.matrix-picker-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: .75rem;
+  cursor: pointer;
+  color: #1e293b;
+  transition: background 0.1s;
+}
+
+.matrix-picker-btn:hover { background: #f1f5f9; }
+
+/* Mini stat cards */
+.mini-stat {
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.mini-val { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+.mini-lbl { font-size: .7rem; opacity: .85; }
+.mini-blue   { background: linear-gradient(135deg,#3b82f6,#2563eb); }
+.mini-green  { background: linear-gradient(135deg,#10b981,#059669); }
+.mini-red    { background: linear-gradient(135deg,#ef4444,#dc2626); }
+.mini-purple { background: linear-gradient(135deg,#8b5cf6,#7c3aed); }
+.mini-orange { background: linear-gradient(135deg,#f59e0b,#d97706); }
+
+.tech-name-text {
+  max-width: 155px;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
