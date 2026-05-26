@@ -614,3 +614,180 @@ def get_month_stats(year, month):
         "min_t2_config": min_t2_cfg,
         "days_with_t2_ok": sum(1 for v in t2_by_day.values() if v >= min_t2_cfg),
     }
+
+
+# ---------------------------------------------------------------
+# OPERATIONAL ALERTS  (v5)
+# ---------------------------------------------------------------
+def get_alerts(year, month):
+    """
+    Compute operational alerts for a given month.
+    Returns list of dicts: {type, code, msg, detail}
+    type: 'danger' | 'warning' | 'info'
+    """
+    alerts = []
+    mondays = get_month_mondays(year, month)
+    month_days = get_month_days(year, month)
+    month_day_set = set(month_days)
+    min_t2 = get_config_int("MIN_T2_DAILY", DEFAULT_MIN_T2)
+
+    # Build week map
+    week_map = {}
+    for monday in mondays:
+        wk = WeekSchedule.query.filter_by(week_start=monday).first()
+        if wk:
+            week_map[monday] = wk
+
+    if not week_map:
+        return []
+
+    # All assignments in month only
+    all_das = []
+    for wk in week_map.values():
+        das = DayAssignment.query.filter_by(week_id=wk.id).all()
+        for da in das:
+            if da.date in month_day_set:
+                all_das.append(da)
+
+    if not all_das:
+        return []
+
+    # --- 1. Low T2 days ---
+    by_date_shift = defaultdict(lambda: defaultdict(int))
+    for da in all_das:
+        by_date_shift[da.date][da.shift] += 1
+
+    low_t2_days = []
+    zero_t2_days = []
+    for d in month_days:
+        if is_sunday_or_holiday(d):
+            continue
+        if not by_date_shift[d]:
+            continue  # No assignments at all (not generated)
+        t2_count = by_date_shift[d].get(SHIFT_T2, 0)
+        if t2_count == 0:
+            zero_t2_days.append(d)
+        elif t2_count < min_t2:
+            low_t2_days.append(d)
+
+    if zero_t2_days:
+        days_str = ", ".join(str(d.day) for d in zero_t2_days[:6])
+        if len(zero_t2_days) > 6:
+            days_str += "..."
+        alerts.append({
+            "type": "danger", "code": "zero_t2",
+            "msg": f"Sin T2 asignado: dias {days_str}",
+            "detail": f"Critico: {len(zero_t2_days)} dia(s) sin cobertura T2"
+        })
+
+    if low_t2_days:
+        days_str = ", ".join(str(d.day) for d in low_t2_days[:6])
+        if len(low_t2_days) > 6:
+            days_str += "..."
+        alerts.append({
+            "type": "warning", "code": "low_t2",
+            "msg": f"T2 bajo minimo ({min_t2}): dias {days_str}",
+            "detail": f"{len(low_t2_days)} dia(s) con T2 insuficiente"
+        })
+
+    # --- 2. T2 overload: tech in T2 3+ weeks of same month ---
+    tech_t2_week_count = defaultdict(int)
+    for monday, wk in week_map.items():
+        week_das = [da for da in all_das
+                    if da.date >= monday and da.date <= monday + timedelta(days=6)]
+        t2_ids = {da.technician_id for da in week_das if da.shift == SHIFT_T2}
+        for tid in t2_ids:
+            tech_t2_week_count[tid] += 1
+
+    overloaded = [(tid, cnt) for tid, cnt in tech_t2_week_count.items() if cnt >= 3]
+    if overloaded:
+        names = []
+        for tid, cnt in overloaded[:3]:
+            tech = Technician.query.get(tid)
+            if tech:
+                names.append(f"{tech.name}({cnt}sem)")
+        extra = len(overloaded) - 3
+        names_str = ", ".join(names)
+        if extra > 0:
+            names_str += f" y {extra} mas"
+        alerts.append({
+            "type": "warning", "code": "t2_overload",
+            "msg": f"Sobre-rotacion T2: {names_str}",
+            "detail": "Considera redistribuir carga de T2 en el mes"
+        })
+
+    # --- 3. Consecutive sundays/holidays ---
+    tech_sunday_weeks = defaultdict(int)
+    for monday, wk in week_map.items():
+        week_das = [da for da in all_das
+                    if da.date >= monday and da.date <= monday + timedelta(days=6)]
+        sun_ids = {da.technician_id for da in week_das if da.is_sunday_holiday}
+        for tid in sun_ids:
+            tech_sunday_weeks[tid] += 1
+
+    consec_sun = [(tid, cnt) for tid, cnt in tech_sunday_weeks.items() if cnt >= 2]
+    if consec_sun:
+        names = []
+        for tid, cnt in consec_sun[:3]:
+            tech = Technician.query.get(tid)
+            if tech:
+                names.append(tech.name)
+        extra = len(consec_sun) - 3
+        names_str = ", ".join(names)
+        if extra > 0:
+            names_str += f" y {extra} mas"
+        alerts.append({
+            "type": "info", "code": "consec_sunday",
+            "msg": f"Dominicales repetidos: {names_str}",
+            "detail": "Tecnicos con 2+ domingos/festivos en el mes"
+        })
+
+    # --- 4. Novelty conflict: registered after generation ---
+    novelties = Novelty.query.filter(
+        Novelty.date_start <= month_days[-1],
+        Novelty.date_end   >= month_days[0]
+    ).all()
+
+    nov_map = defaultdict(dict)
+    for nov in novelties:
+        d = nov.date_start
+        while d <= nov.date_end:
+            if d in month_day_set:
+                nov_map[nov.technician_id][d] = nov.novelty_type
+            d += timedelta(days=1)
+
+    conflict_techs = set()
+    for da in all_das:
+        if da.is_manual:
+            continue
+        nov_type = nov_map[da.technician_id].get(da.date)
+        if nov_type and da.shift not in NOVEDADES and da.shift not in (SHIFT_DESCANSO, SHIFT_DOMINGO):
+            conflict_techs.add(da.technician_id)
+
+    if conflict_techs:
+        names = []
+        for tid in list(conflict_techs)[:3]:
+            tech = Technician.query.get(tid)
+            if tech:
+                names.append(tech.name)
+        extra = len(conflict_techs) - 3
+        names_str = ", ".join(names)
+        if extra > 0:
+            names_str += f" y {extra} mas"
+        alerts.append({
+            "type": "warning", "code": "novelty_conflict",
+            "msg": f"Novedad sin reflejar en horario: {names_str}",
+            "detail": "Hay novedades registradas DESPUES de generar. Regenera el mes."
+        })
+
+    # --- 5. Unassigned days check ---
+    days_no_data = [d for d in month_days
+                    if not is_sunday_or_holiday(d) and not by_date_shift[d]]
+    if days_no_data:
+        alerts.append({
+            "type": "info", "code": "unassigned",
+            "msg": f"{len(days_no_data)} dia(s) sin datos de asignacion",
+            "detail": "Puede haber dias sin generar dentro del mes"
+        })
+
+    return alerts
