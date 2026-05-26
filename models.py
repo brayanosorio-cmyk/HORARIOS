@@ -212,3 +212,22 @@ class HolidayCalendar(db.Model):
     id   = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False, unique=True)
     name = db.Column(db.String(100))
+
+
+class MonthSchedule(db.Model):
+    """Tracks a full-month generation. Weeks are shared across months."""
+    __tablename__ = "month_schedules"
+    id           = db.Column(db.Integer, primary_key=True)
+    year         = db.Column(db.Integer, nullable=False)
+    month        = db.Column(db.Integer, nullable=False)
+    generated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_locked    = db.Column(db.Boolean, default=False)
+    notes        = db.Column(db.Text)
+
+    __table_args__ = (db.UniqueConstraint("year", "month", name="uq_month_schedule"),)
+
+    @property
+    def month_name_es(self):
+        names = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                 "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+        return names[self.month - 1]
