@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Resultado Importacion{% endblock %}
+{% block title_display %}Resultado de Importacion{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <!-- SUMMARY CARDS -->
+    <div class="row g-3 mb-4">
+      <div class="col-4">
+        <div class="kpi-card kpi-green text-center">
+          <div class="kpi-icon"><i class="bi bi-person-check-fill"></i></div>
+          <div class="kpi-value">{{ created | length }}</div>
+          <div class="kpi-label">Creados</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="kpi-card kpi-blue text-center">
+          <div class="kpi-icon"><i class="bi bi-person-gear"></i></div>
+          <div class="kpi-value">{{ updated | length }}</div>
+          <div class="kpi-label">Actualizados</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div class="kpi-card {% if errors %}kpi-red{% else %}kpi-gray{% endif %} text-center">
+          <div class="kpi-icon"><i class="bi bi-person-x-fill"></i></div>
+          <div class="kpi-value">{{ errors | length }}</div>
+          <div class="kpi-label">Errores</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="small text-muted mb-3">
+      <i class="bi bi-file-earmark me-1"></i>Fuente: {{ method }}
+    </div>
+
+    <!-- CREATED -->
+    {% if created %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white">
+          <span class="fw-semibold small text-success">
+            <i class="bi bi-check-circle-fill me-2"></i>Creados ({{ created | length }})
+          </span>
+        </div>
+        <div class="card-body py-2">
+          <div class="d-flex flex-wrap gap-2">
+            {% for name in created %}
+              <span class="badge bg-success">{{ name }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- UPDATED -->
+    {% if updated %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white">
+          <span class="fw-semibold small text-primary">
+            <i class="bi bi-arrow-repeat me-2"></i>Actualizados ({{ updated | length }})
+          </span>
+        </div>
+        <div class="card-body py-2">
+          <div class="d-flex flex-wrap gap-2">
+            {% for name in updated %}
+              <span class="badge bg-primary">{{ name }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- ERRORS -->
+    {% if errors %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white">
+          <span class="fw-semibold small text-danger">
+            <i class="bi bi-exclamation-circle-fill me-2"></i>Errores ({{ errors | length }})
+          </span>
+        </div>
+        <div class="card-body py-2">
+          <ul class="list-unstyled mb-0 small">
+            {% for err in errors %}
+              <li class="text-danger"><i class="bi bi-x me-1"></i>{{ err }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- ACTIONS -->
+    <div class="d-flex gap-2 mt-2">
+      <a href="{{ url_for('technicians') }}" class="btn btn-primary">
+        <i class="bi bi-people me-1"></i>Ver tecnicos
+      </a>
+      <a href="{{ url_for('bulk_import_view') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Importar mas
+      </a>
+      <a href="{{ url_for('generate_month_view') }}" class="btn btn-outline-primary">
+        <i class="bi bi-magic me-1"></i>Generar mes
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

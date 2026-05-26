@@ -5,9 +5,14 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <span class="text-muted small">{{ technicians | length }} tecnicos en total</span>
-  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTechModal">
-    <i class="bi bi-person-plus me-1"></i>Agregar tecnico
-  </button>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('bulk_import_view') }}" class="btn btn-success btn-sm">
+      <i class="bi bi-cloud-upload me-1"></i>Carga masiva
+    </a>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTechModal">
+      <i class="bi bi-person-plus me-1"></i>Agregar uno
+    </button>
+  </div>
 </div>
 
 <div class="card border-0 shadow-sm">

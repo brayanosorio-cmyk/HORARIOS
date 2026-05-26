@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Carga Masiva{% endblock %}
+{% block title_display %}Carga Masiva de Tecnicos{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+
+    <!-- TOP ACTIONS -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <a href="{{ url_for('technician_template') }}" class="btn btn-success btn-sm">
+        <i class="bi bi-file-earmark-excel me-1"></i>Descargar plantilla Excel
+      </a>
+      <span class="text-muted small">Usa la plantilla para llenar los datos correctamente.</span>
+    </div>
+
+    <!-- TABS -->
+    <ul class="nav nav-tabs mb-0" id="importTabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabPaste" type="button">
+          <i class="bi bi-clipboard-plus me-1"></i>Pegar lista
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabFile" type="button">
+          <i class="bi bi-file-earmark-arrow-up me-1"></i>Subir Excel / CSV
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 rounded-bottom bg-white p-4 shadow-sm">
+
+      <!-- TAB 1: PASTE -->
+      <div class="tab-pane fade show active" id="tabPaste">
+        <h6 class="fw-semibold mb-3">Pegar nombres directamente</h6>
+        <p class="small text-muted mb-3">
+          Escribe o pega uno por linea. Formato basico: solo el nombre.<br>
+          Formato extendido: <code>Nombre, Codigo, Supervisor, TurnoFijo, SoloTickets, SinDominical</code>
+        </p>
+
+        <form method="post" action="{{ url_for('bulk_paste') }}">
+          <div class="mb-3">
+            <textarea name="names_text"
+                      class="form-control font-monospace"
+                      rows="12"
+                      placeholder="Juan Perez
+Carlos Gomez, TEC001, Supervisor1, T2, NO, NO
+Maria Lopez, TEC002, Supervisor2, T1, SI, NO
+Andres Ruiz
+Pedro Vargas, TEC003, Supervisor1, , NO, SI
+..."
+                      required></textarea>
+            <div class="form-text">Un tecnico por linea. Minimo el nombre.</div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-people-fill me-2"></i>Importar lista
+            </button>
+            <span class="text-muted small" id="lineCount">0 tecnicos detectados</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- TAB 2: FILE UPLOAD -->
+      <div class="tab-pane fade" id="tabFile">
+        <h6 class="fw-semibold mb-3">Subir archivo Excel (.xlsx) o CSV</h6>
+
+        <form method="post" action="{{ url_for('bulk_upload') }}"
+              enctype="multipart/form-data" id="uploadForm">
+          <!-- Drag & Drop zone -->
+          <div class="drop-zone" id="dropZone"
+               ondragover="event.preventDefault(); this.classList.add('drop-active')"
+               ondragleave="this.classList.remove('drop-active')"
+               ondrop="handleDrop(event)">
+            <i class="bi bi-cloud-arrow-up fs-1 text-primary d-block mb-2"></i>
+            <div class="fw-semibold">Arrastra tu archivo aqui</div>
+            <div class="text-muted small mt-1">o haz clic para seleccionar</div>
+            <input type="file" name="file" id="fileInput"
+                   accept=".xlsx,.csv"
+                   class="drop-input"
+                   onchange="handleFileSelect(this)">
+            <div class="drop-filename mt-2 d-none" id="dropFilename"></div>
+          </div>
+
+          <!-- Preview table -->
+          <div id="previewSection" class="d-none mt-3">
+            <h6 class="fw-semibold small text-muted">Vista previa (primeras filas)</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered small" id="previewTable">
+                <thead class="table-dark" id="previewHead"></thead>
+                <tbody id="previewBody"></tbody>
+              </table>
+            </div>
+            <div class="d-flex gap-2 mt-2 align-items-center">
+              <button type="submit" class="btn btn-primary" id="uploadBtn" disabled>
+                <i class="bi bi-upload me-1"></i>Importar archivo
+              </button>
+              <span class="text-muted small" id="rowCount"></span>
+            </div>
+          </div>
+
+          <div id="noPreview" class="mt-3">
+            <button type="submit" class="btn btn-primary d-none" id="uploadBtnDirect">
+              <i class="bi bi-upload me-1"></i>Importar archivo
+            </button>
+          </div>
+        </form>
+
+        <div class="alert alert-info small mt-4 mb-0">
+          <i class="bi bi-info-circle me-1"></i>
+          <strong>Columnas esperadas:</strong>
+          nombre, codigo, supervisor, turno_fijo (T1/T2), solo_tickets (SI/NO), sin_dominicales (SI/NO).
+          El sistema acepta variaciones de nombre de columna (name, cod, supervisor, shift, etc.).
+          <a href="{{ url_for('technician_template') }}" class="fw-semibold">Descargar plantilla</a>
+        </div>
+      </div>
+
+    </div><!-- tab-content -->
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live line count for paste tab
+const textarea = document.querySelector('textarea[name=names_text]');
+const lineCount = document.getElementById('lineCount');
+if (textarea) {
+  textarea.addEventListener('input', () => {
+    const lines = textarea.value.split('\n').filter(l => l.trim()).length;
+    lineCount.textContent = lines + ' tecnico' + (lines !== 1 ? 's' : '') + ' detectado' + (lines !== 1 ? 's' : '');
+  });
+}
+
+// Drag & Drop
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drop-active');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const input = document.getElementById('fileInput');
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    showFileName(file.name);
+    if (file.name.endsWith('.csv')) parseCSVPreview(file);
+  }
+}
+
+function handleFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  showFileName(file.name);
+  if (file.name.endsWith('.csv')) parseCSVPreview(file);
+  else {
+    // For xlsx, can't parse client-side easily -- show upload button
+    document.getElementById('uploadBtnDirect').classList.remove('d-none');
+    document.getElementById('rowCount').textContent = 'Archivo listo para subir.';
+  }
+}
+
+function showFileName(name) {
+  const el = document.getElementById('dropFilename');
+  el.textContent = 'Archivo: ' + name;
+  el.classList.remove('d-none');
+  document.getElementById('dropZone').classList.add('drop-has-file');
+}
+
+function parseCSVPreview(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    if (lines.length < 2) return;
+    const headers = lines[0].split(',');
+    const rows    = lines.slice(1, 6); // preview first 5 data rows
+
+    const head = document.getElementById('previewHead');
+    const body = document.getElementById('previewBody');
+    head.innerHTML = '<tr>' + headers.map(h => '<th>' + h.trim() + '</th>').join('') + '</tr>';
+    body.innerHTML = rows.map(r =>
+      '<tr>' + r.split(',').map(c => '<td>' + c.trim() + '</td>').join('') + '</tr>'
+    ).join('');
+
+    document.getElementById('previewSection').classList.remove('d-none');
+    document.getElementById('rowCount').textContent = (lines.length - 1) + ' tecnicos en archivo.';
+    document.getElementById('uploadBtn').disabled = false;
+  };
+  reader.readAsText(file, 'utf-8');
+}
+</script>
+{% endblock %}
