@@ -27,7 +27,7 @@
     <a href="{{ url_for('month_view') }}" class="sidebar-link {% if request.endpoint == 'month_view' %}active{% endif %}">
       <i class="bi bi-calendar3"></i><span class="sidebar-label">Vista Mensual</span>
     </a>
-    <a href="{{ url_for('generate_month_view') }}" class="sidebar-link {% if request.endpoint == 'generate_month_view' %}active{% endif %}">
+    <a href="/generate/month" class="sidebar-link {% if request.path == '/generate/month' %}active{% endif %}">
       <i class="bi bi-calendar3-range"></i><span class="sidebar-label">Generar Mes</span>
     </a>
     <a href="{{ url_for('generate') }}" class="sidebar-link {% if request.endpoint == 'generate' %}active{% endif %}">
