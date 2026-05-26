@@ -12,7 +12,8 @@ from models import (db, Technician, WeekSchedule, DayAssignment, Novelty,
 from scheduler import (generate_week, generate_month, apply_novelty_range,
                        get_week_stats, get_month_stats, get_month_days,
                        get_month_mondays, is_sunday_or_holiday,
-                       seed_colombia_holidays, get_colombia_holidays)
+                       seed_colombia_holidays, get_colombia_holidays,
+                       get_alerts)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "cambiar-en-produccion-2024")
@@ -178,6 +179,15 @@ def month_view(year=None, month=None):
 
     # Get all weeks overlapping this month
     mondays = get_month_mondays(year, month)
+
+    # day_to_week: maps each date -> week slot number (1-indexed) for column filter
+    day_to_week = {}
+    for _wi, _mon in enumerate(mondays):
+        for _i in range(7):
+            _d = _mon + timedelta(days=_i)
+            if _d.month == month:
+                day_to_week[_d] = _wi + 1
+
     weeks = []
     for monday in mondays:
         wk = WeekSchedule.query.filter_by(week_start=monday).first()
@@ -187,7 +197,7 @@ def month_view(year=None, month=None):
     min_t2 = int(Config.get("MIN_T2_DAILY", "6"))
 
     # --- Build matrix data efficiently ---
-    # Single query per week → index by (tech_id, date)
+    # Single query per week > index by (tech_id, date)
     assignment_map = {}  # (tech_id, date) -> cell_dict
     for wk in weeks:
         das = DayAssignment.query.filter_by(week_id=wk.id).all()
@@ -265,10 +275,14 @@ def month_view(year=None, month=None):
         is_holiday_map=is_holiday_map, holiday_name_map=holiday_name_map,
         low_t2_days=low_t2_days, min_t2=min_t2,
         all_shifts=ALL_SHIFTS, shift_labels=SHIFT_LABELS, shift_colors=SHIFT_COLORS,
+        novedades_types=NOVEDADES,
         today=today,
         prev_year=prev_year, prev_month=prev_month,
         next_year=next_year, next_month=next_month,
-        month_name=month_names[month - 1])
+        month_name=month_names[month - 1],
+        day_to_week=day_to_week,
+        mondays=mondays,
+        alerts=get_alerts(year, month) if ms else [])
 
 
 # ---------------------------------------------------------------
@@ -319,10 +333,20 @@ def generate_month_view():
     # Preview Colombia holidays for current and next year
     preview_holidays = get_colombia_holidays(today.year)
 
+    # Active novelties for pre-generation preview
+    from datetime import date as _date
+    _today = _date.today()
+    active_novelties = (Novelty.query
+                        .filter(Novelty.date_end >= _today)
+                        .order_by(Novelty.date_start).all())
+
     return render_template("generate_month.html",
         today=today, technicians=technicians,
         min_t2=min_t2, ticket_count=ticket_count,
         preview_holidays=preview_holidays,
+        active_novelties=active_novelties,
+        novedades_types=NOVEDADES,
+        SHIFT_COLORS=SHIFT_COLORS, SHIFT_LABELS=SHIFT_LABELS,
         month_names=["Enero","Febrero","Marzo","Abril","Mayo","Junio",
                      "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"])
 
@@ -577,6 +601,13 @@ def api_month_coverage(year, month):
                                for k, v in stats["t2_by_day"].items()}
         stats["low_t2_days"] = [d.isoformat() for d in stats.get("low_t2_days", [])]
     return jsonify(stats)
+
+
+# API: operational alerts
+@app.route("/api/alerts/<int:year>/<int:month>")
+def api_month_alerts(year, month):
+    result = get_alerts(year, month)
+    return jsonify(result)
 
 
 # ---------------------------------------------------------------
