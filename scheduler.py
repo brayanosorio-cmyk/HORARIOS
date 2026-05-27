@@ -235,12 +235,54 @@ def _ticket_score(tech, history):
     return float(history["ticket_weeks"]) * 10.0
 
 
-def _sunday_score(tech, history):
+def _sunday_score(tech, history, d=None, month_ctx=None):
+    """
+    Score for assigning tech to a special day.
+    d: the date (sunday vs festivo distinction)
+    month_ctx: {tech_id: {sundays, festivos}} for current month
+    Lower score = higher priority (picked first).
+    """
     if tech.no_sundays:
         return 9999.0
     if history["consecutive_sundays"] >= 1:
         return 8888.0
-    return float(history["sundays"]) * 10.0
+    score = float(history["sundays"]) * 10.0
+    if d is not None and month_ctx is not None:
+        ctx = month_ctx.get(tech.id, {'sundays': 0, 'festivos': 0})
+        if d.weekday() == 6:        # Assigning a sunday
+            score += ctx['sundays']  * 50.0   # Already did sunday this month
+            score += ctx['festivos'] * 30.0   # Already did festivo this month
+        else:                        # Assigning a festivo
+            score += ctx['festivos'] * 50.0   # Already did festivo this month
+            score += ctx['sundays']  * 30.0   # Already did sunday this month
+    return score
+
+
+# ---------------------------------------------------------------
+# MONTH SPECIAL DAY CONTEXT  (v6: balance domingo/festivo)
+# ---------------------------------------------------------------
+def _get_month_special_context(week_start):
+    """
+    Returns {tech_id: {'sundays': N, 'festivos': N}} for sunday_holiday
+    assignments already generated in the same month as week_start,
+    but only for dates BEFORE week_start.
+    Used to enforce monthly sunday/festivo rotation balance.
+    """
+    month_start = date(week_start.year, week_start.month, 1)
+    das = (DayAssignment.query
+           .filter(DayAssignment.date >= month_start,
+                   DayAssignment.date < week_start,
+                   DayAssignment.is_sunday_holiday == True)
+           .all())
+    ctx = {}
+    for da in das:
+        if da.technician_id not in ctx:
+            ctx[da.technician_id] = {'sundays': 0, 'festivos': 0}
+        if da.date.weekday() == 6:
+            ctx[da.technician_id]['sundays'] += 1
+        else:
+            ctx[da.technician_id]['festivos'] += 1
+    return ctx
 
 
 # ---------------------------------------------------------------
@@ -349,22 +391,60 @@ def generate_week(week_start, force_regenerate=False,
                 break
             ticket_assigned.add(t.id)
 
-    # --- Dominicales ---
+    # --- Dominicales y Festivos (balance mensual v6) ---
     special_days = [d for d in week_dates if is_sunday_or_holiday(d)]
+    month_ctx = _get_month_special_context(week_start)
     sunday_assignments = {}
     for sd in special_days:
-        eligible = [t for t in technicians
-                    if not t.no_sundays
-                    and novelties_map[t.id].get(sd) is None
-                    and histories[t.id]["consecutive_sundays"] < 1]
+        sd_is_sunday = (sd.weekday() == 6)
+        # Pool 1: sin consecutivo y respetando balance mensual dom/fest
+        eligible = []
+        for t in technicians:
+            if t.no_sundays:
+                continue
+            if novelties_map[t.id].get(sd) is not None:
+                continue
+            if histories[t.id]["consecutive_sundays"] >= 1:
+                continue
+            ctx = month_ctx.get(t.id, {'sundays': 0, 'festivos': 0})
+            if sd_is_sunday and ctx['sundays'] >= 1:
+                continue   # Ya trabajo un domingo este mes: no asignar otro domingo
+            if not sd_is_sunday and ctx['festivos'] >= 1:
+                continue   # Ya trabajo un festivo este mes: no asignar otro festivo
+            eligible.append(t)
+        # Fallback 1: relaxar regla mensual dom/fest (todos rotaron)
+        if not eligible:
+            for t in technicians:
+                if t.no_sundays or novelties_map[t.id].get(sd) is not None:
+                    continue
+                if histories[t.id]["consecutive_sundays"] >= 1:
+                    continue
+                eligible.append(t)
+            if eligible:
+                warnings.append(f"Dia {sd.day}: todos los elegibles ya rotaron este mes")
+        # Fallback 2: relaxar consecutivo tambien
         if not eligible:
             eligible = [t for t in technicians
                         if not t.no_sundays and novelties_map[t.id].get(sd) is None]
             if eligible:
-                warnings.append(f"{sd}: sin candidatos sin domingo consecutivo")
-        eligible.sort(key=lambda t: _sunday_score(t, histories[t.id]))
+                warnings.append(f"Dia {sd.day}: sin restricciones (fallback 2)")
+        eligible.sort(key=lambda t: _sunday_score(t, histories[t.id], sd, month_ctx))
         count = max(1, len(eligible) // 8)
         sunday_assignments[sd] = [t.id for t in eligible[:count]]
+
+    # --- Descanso post-domingo (v6) ---
+    # Sabado de esta semana = Monday + 5 dias
+    saturday_this_week = week_start + timedelta(days=5)
+    # Domingo de la semana anterior = Monday - 1 dia
+    prev_sunday = week_start - timedelta(days=1)  # Siempre sera domingo
+    prev_sunday_workers = set()
+    if prev_sunday.weekday() == 6:  # Verificacion defensiva
+        prev_sun_das = DayAssignment.query.filter(
+            DayAssignment.date == prev_sunday,
+            DayAssignment.is_sunday_holiday == True,
+            DayAssignment.shift == SHIFT_DOMINGO
+        ).all()
+        prev_sunday_workers = {da.technician_id for da in prev_sun_das}
 
     # --- Crear asignaciones dia x dia ---
     assignments = []
@@ -388,9 +468,18 @@ def generate_week(week_start, force_regenerate=False,
                 da = DayAssignment(week_id=week_obj.id, technician_id=tech.id,
                                    date=d, shift=nov_type, is_ticket=False)
             else:
-                da = DayAssignment(week_id=week_obj.id, technician_id=tech.id,
-                                   date=d, shift=base_shift,
-                                   is_ticket=(is_ticket_tech and d.weekday() < 5))
+                # Regla descanso post-domingo: si trabajo domingo previo, descanso sabado
+                if (d == saturday_this_week
+                        and tech.id in prev_sunday_workers
+                        and not nov_type):
+                    da = DayAssignment(week_id=week_obj.id, technician_id=tech.id,
+                                       date=d, shift=SHIFT_DESCANSO,
+                                       is_ticket=False, is_manual=False,
+                                       override_reason="Descanso post-domingo automatico")
+                else:
+                    da = DayAssignment(week_id=week_obj.id, technician_id=tech.id,
+                                       date=d, shift=base_shift,
+                                       is_ticket=(is_ticket_tech and d.weekday() < 5))
             assignments.append(da)
 
     for da in assignments:
@@ -790,4 +879,73 @@ def get_alerts(year, month):
             "detail": "Puede haber dias sin generar dentro del mes"
         })
 
-    return alerts
+    # --- 6. Too many sundays for one tech ---
+    tech_sunday_count = {}
+    tech_festivo_count = {}
+    for da in all_das:
+        if not da.is_sunday_holiday or da.shift != SHIFT_DOMINGO:
+            continue
+        if da.date.weekday() == 6:
+            tech_sunday_count[da.technician_id] = tech_sunday_count.get(da.technician_id, 0) + 1
+        else:
+            tech_festivo_count[da.technician_id] = tech_festivo_count.get(da.technician_id, 0) + 1
+
+    heavy_sundays = [(tid, cnt) for tid, cnt in tech_sunday_count.items() if cnt >= 2]
+    if heavy_sundays:
+        names = []
+        for tid, cnt in heavy_sundays[:3]:
+            tech = Technician.query.get(tid)
+            if tech:
+                names.append(f"{tech.name}({cnt}dom)")
+        extra = len(heavy_sundays) - 3
+        s = ", ".join(names) + (f" y {extra} mas" if extra > 0 else "")
+        alerts.append({
+            "type": "warning", "code": "too_many_sundays",
+            "msg": f"Exceso de domingos: {s}",
+            "detail": "Tecnicos con 2+ domingos en el mes. Revisa la rotacion."
+        })
+
+    heavy_festivos = [(tid, cnt) for tid, cnt in tech_festivo_count.items() if cnt >= 2]
+    if heavy_festivos:
+        names = []
+        for tid, cnt in heavy_festivos[:3]:
+            tech = Technician.query.get(tid)
+            if tech:
+                names.append(f"{tech.name}({cnt}fest)")
+        extra = len(heavy_festivos) - 3
+        s = ", ".join(names) + (f" y {extra} mas" if extra > 0 else "")
+        alerts.append({
+            "type": "warning", "code": "too_many_festivos",
+            "msg": f"Exceso de festivos: {s}",
+            "detail": "Tecnicos con 2+ festivos en el mes. Revisa la rotacion."
+        })
+
+    # --- 7. Tech with sunday AND festivo too close (< 7 days apart) ---
+    from collections import defaultdict as _dd
+    tech_special_dates = _dd(list)
+    for da in all_das:
+        if da.is_sunday_holiday and da.shift == SHIFT_DOMINGO:
+            tech_special_dates[da.technician_id].append(da.date)
+
+    close_pairs = []
+    for tid, dates in tech_special_dates.items():
+        dates_sorted = sorted(dates)
+        has_sunday = any(d.weekday() == 6 for d in dates_sorted)
+        has_festivo = any(d.weekday() != 6 for d in dates_sorted)
+        if has_sunday and has_festivo:
+            for i in range(len(dates_sorted)-1):
+                gap = (dates_sorted[i+1] - dates_sorted[i]).days
+                if gap < 7:
+                    tech = Technician.query.get(tid)
+                    if tech:
+                        close_pairs.append(f"{tech.name}({gap}d)")
+                    break
+    if close_pairs:
+        s = ", ".join(close_pairs[:3]) + ("..." if len(close_pairs) > 3 else "")
+        alerts.append({
+            "type": "info", "code": "close_sunday_festivo",
+            "msg": f"Domingo+festivo muy cercanos: {s}",
+            "detail": "Tecnico con domingo y festivo en menos de 7 dias."
+        })
+
+        return alerts

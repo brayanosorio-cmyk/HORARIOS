@@ -144,6 +144,33 @@ def index():
     # Month stats for current month
     month_stats = get_month_stats(today.year, today.month)
 
+    # --- Dom/Festivo stats for current month ---
+    month_start_d = date(today.year, today.month, 1)
+    _special_das = (DayAssignment.query
+                    .filter(DayAssignment.date >= month_start_d,
+                            DayAssignment.date <= today,
+                            DayAssignment.is_sunday_holiday == True,
+                            DayAssignment.shift == SHIFT_DOMINGO)
+                    .all())
+    _tech_sp = {}
+    for _da in _special_das:
+        _tid = _da.technician_id
+        if _tid not in _tech_sp:
+            _t = Technician.query.get(_tid)
+            _tech_sp[_tid] = {
+                'name': _t.name if _t else '?',
+                'sundays': 0, 'festivos': 0
+            }
+        if _da.date.weekday() == 6:
+            _tech_sp[_tid]['sundays'] += 1
+        else:
+            _tech_sp[_tid]['festivos'] += 1
+    tech_special_list = sorted(
+        [{'id': k, **v, 'total': v['sundays'] + v['festivos']}
+         for k, v in _tech_sp.items()],
+        key=lambda x: x['total'], reverse=True
+    )
+
     return render_template("index.html",
         today=today, week=week, monday=monday, ms=ms,
         total_techs=total_techs, total_months=total_months,
@@ -151,7 +178,8 @@ def index():
         t2_today=t2_today, min_t2=min_t2,
         recent_months=recent_months, recent_audit=recent_audit,
         chart_labels=chart_labels, chart_t2=chart_t2,
-        month_stats=month_stats)
+        month_stats=month_stats,
+        tech_special_list=tech_special_list)
 
 
 # ---------------------------------------------------------------
