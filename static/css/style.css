@@ -789,3 +789,58 @@ a { text-decoration: none; }
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ============================================================
+   v6 ADDITIONS: Shift info cards, dom/fest table
+   ============================================================ */
+
+.shift-info-card {
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: .76rem;
+}
+
+.shift-t1  { background: #eff6ff; border: 1px solid #bfdbfe; }
+.shift-t2  { background: #ecfdf5; border: 1px solid #a7f3d0; }
+.shift-dom { background: #f5f3ff; border: 1px solid #ddd6fe; }
+
+.shift-info-title {
+  font-weight: 700;
+  font-size: .75rem;
+  margin-bottom: 5px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+}
+
+.shift-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  border-top: 1px solid rgba(0,0,0,.05);
+}
+
+.shift-info-day {
+  width: 70px;
+  color: #64748b;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.shift-info-time {
+  font-weight: 700;
+  color: #1e293b;
+  flex: 1;
+}
+
+.shift-info-note {
+  font-size: .66rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* Dom/Fest table highlight */
+.table-warning td {
+  background: #fffbeb !important;
+}
