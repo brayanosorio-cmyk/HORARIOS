@@ -1,7 +1,10 @@
-# sheets_sync.py -- Google Sheets integration for soporte-turnos
-# Requires: gspread>=6.0.0, google-auth>=2.0.0
-# Setup: set env var GOOGLE_CREDENTIALS_JSON with service account JSON content
-#        Share the spreadsheet with the service account email
+# sheets_sync.py -- Google Sheets integration via Apps Script Web App
+# No gspread/google-auth required.
+# Setup:
+#   1. Open the Google Sheets -> Extensions -> Apps Script
+#   2. Paste Code.gs, deploy as Web App (Execute as: Me, Access: Anyone)
+#   3. Copy the /exec URL
+#   4. Set env var APPS_SCRIPT_URL=<url> in Render
 
 import os
 import json
@@ -11,168 +14,152 @@ from datetime import date, datetime
 log = logging.getLogger(__name__)
 
 SPREADSHEET_ID = "1UEr6ybpTcYHD68N7A8UwxVNHELkbXlGbGhXXEhzAo5o"
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.file",
-]
+
 
 # ---------------------------------------------------------------
-# CLIENT
+# HTTP TRANSPORT
 # ---------------------------------------------------------------
-def _get_client():
-    """Return an authenticated gspread client, or None if not configured."""
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", "").strip()
-    if not creds_json:
-        return None
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        info = json.loads(creds_json)
-        creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-        return gspread.authorize(creds)
-    except Exception as exc:
-        log.error("sheets_sync: auth failed: %s", exc)
-        return None
+def _get_script_url():
+    return os.environ.get("APPS_SCRIPT_URL", "").strip()
 
 
 def is_configured():
-    """Return True if GOOGLE_CREDENTIALS_JSON env var is set."""
-    return bool(os.environ.get("GOOGLE_CREDENTIALS_JSON", "").strip())
+    """Return True if APPS_SCRIPT_URL env var is set."""
+    return bool(_get_script_url())
 
 
-def _get_spreadsheet(client):
+def _call(action, data, timeout=30):
+    """
+    POST JSON to the Apps Script Web App.
+    Apps Script /exec returns 302 -> must follow redirect keeping POST method.
+    allow_redirects=True in requests converts POST to GET on 302 -> doPost never fires.
+    Fix: follow redirects manually keeping POST for every hop (max 5).
+    """
+    url = _get_script_url()
+    if not url:
+        return {"ok": False, "error": "APPS_SCRIPT_URL not set"}
+
+    payload = json.dumps({"action": action, "data": data})
+
+    # --- Try requests first: manual redirect to preserve POST ---
     try:
-        return client.open_by_key(SPREADSHEET_ID)
+        import requests as _req
+        target = url
+        for _ in range(5):
+            resp = _req.post(
+                target,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=timeout,
+                allow_redirects=False   # CRITICAL: do NOT auto-follow
+            )
+            if resp.status_code in (301, 302, 303, 307, 308):
+                location = resp.headers.get("Location", "").strip()
+                if not location:
+                    return {"ok": False, "error": "Redirect with no Location header"}
+                target = location
+                continue
+            resp.raise_for_status()
+            return resp.json()
+        return {"ok": False, "error": "Too many redirects"}
+    except ImportError:
+        pass  # Fall through to urllib
     except Exception as exc:
-        log.error("sheets_sync: cannot open spreadsheet: %s", exc)
-        return None
+        log.error("sheets_sync._call(requests) error: %s", exc)
+        return {"ok": False, "error": str(exc)}
 
+    # --- urllib fallback: manual POST redirect ---
+    import urllib.request
+    import urllib.error
 
-def _get_or_create_sheet(ss, name, rows=2000, cols=40):
-    """Return worksheet by name, creating it if needed."""
-    try:
-        return ss.worksheet(name)
-    except Exception:
-        try:
-            return ss.add_worksheet(title=name, rows=rows, cols=cols)
-        except Exception as exc:
-            log.error("sheets_sync: cannot create sheet %s: %s", name, exc)
-            return None
+    payload_bytes = payload.encode("utf-8")
+    headers = {"Content-Type": "application/json"}
 
-
-def _write_rows(ws, headers, data_rows):
-    """Clear sheet and write headers + data rows."""
-    try:
-        ws.clear()
-        all_rows = [headers] + [
-            [str(v) if v is not None else "" for v in row]
-            for row in data_rows
-        ]
-        ws.update(all_rows, value_input_option="USER_ENTERED")
-        return True
-    except Exception as exc:
-        log.error("sheets_sync: write_rows failed: %s", exc)
-        return False
-
-
-def _append_row(ws, row):
-    """Append a single row to the sheet."""
-    try:
-        ws.append_row(
-            [str(v) if v is not None else "" for v in row],
-            value_input_option="USER_ENTERED"
+    def _post(target_url):
+        req = urllib.request.Request(
+            target_url,
+            data=payload_bytes,
+            headers=headers,
+            method="POST"
         )
-        return True
+        return req
+
+    try:
+        target = url
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(),
+            urllib.request.HTTPRedirectHandler.__new__(
+                type("NoRedirect", (urllib.request.HTTPRedirectHandler,),
+                     {"redirect_request": lambda self, *a, **kw: None})
+            )
+        )
+        for _ in range(5):
+            try:
+                with opener.open(_post(target), timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as err:
+                if err.code in (301, 302, 303, 307, 308):
+                    location = err.headers.get("Location", "").strip()
+                    if not location:
+                        return {"ok": False, "error": "Redirect with no Location"}
+                    target = location
+                    continue
+                raise
+        return {"ok": False, "error": "Too many redirects (urllib)"}
     except Exception as exc:
-        log.error("sheets_sync: append_row failed: %s", exc)
-        return False
+        log.error("sheets_sync._call(urllib) error: %s", exc)
+        return {"ok": False, "error": str(exc)}
 
 
 # ---------------------------------------------------------------
 # SYNC: TECHNICIANS
 # ---------------------------------------------------------------
 def sync_technicians():
-    """Push all technicians to 'Tecnicos' sheet."""
-    client = _get_client()
-    if not client:
-        return False
-    ss = _get_spreadsheet(client)
-    if not ss:
-        return False
-
-    from models import Technician, SHIFT_T1, SHIFT_T2
-    ws = _get_or_create_sheet(ss, "Tecnicos")
-    if not ws:
-        return False
-
+    from models import Technician
     techs = Technician.query.order_by(Technician.name).all()
     headers = ["ID", "Nombre", "Turno_Fijo", "Solo_Tickets", "Sin_Domingos", "Activo"]
-    rows = []
-    for t in techs:
-        rows.append([
-            t.id,
-            t.name,
-            t.fixed_shift or "Auto",
-            "Si" if t.tickets_only else "No",
-            "Si" if t.no_sundays else "No",
-            "Si" if t.is_active else "No",
-        ])
-    ok = _write_rows(ws, headers, rows)
-    log.info("sheets_sync: Tecnicos synced (%d rows)", len(rows))
-    return ok
+    rows = [
+        [t.id, t.name, t.fixed_shift or "Auto",
+         "Si" if t.tickets_only else "No",
+         "Si" if t.no_sundays else "No",
+         "Si" if t.is_active else "No"]
+        for t in techs
+    ]
+    result = _call("sync_technicians", {"headers": headers, "rows": rows})
+    log.info("sheets_sync: Tecnicos -> %s", result)
+    return result.get("ok", False)
 
 
 # ---------------------------------------------------------------
 # SYNC: MONTHLY SCHEDULE
 # ---------------------------------------------------------------
 def sync_month(year, month):
-    """
-    Push full monthly schedule matrix to 'Horario_YYYY_MM' sheet.
-    Rows = technicians, columns = days of month.
-    """
-    client = _get_client()
-    if not client:
-        return False
-    ss = _get_spreadsheet(client)
-    if not ss:
-        return False
-
     import calendar
-    from models import (Technician, WeekSchedule, DayAssignment,
+    from models import (Technician, DayAssignment,
                         SHIFT_T1, SHIFT_T2, SHIFT_DOMINGO, SHIFT_DESCANSO)
 
-    sheet_name = f"Horario_{year}_{month:02d}"
-    ws = _get_or_create_sheet(ss, sheet_name)
-    if not ws:
-        return False
-
-    # Build date range for the month
     _, n_days = calendar.monthrange(year, month)
     dates = [date(year, month, d) for d in range(1, n_days + 1)]
 
-    # Fetch all assignments for the month
     month_start = date(year, month, 1)
     month_end   = date(year, month, n_days)
     das = (DayAssignment.query
            .filter(DayAssignment.date >= month_start,
                    DayAssignment.date <= month_end)
            .all())
-    # Index by (tech_id, date)
     da_map = {(da.technician_id, da.date): da for da in das}
 
     techs = (Technician.query
              .filter_by(is_active=True)
              .order_by(Technician.name).all())
 
-    day_labels = [f"{d.day:02d}/{d.month:02d}" for d in dates]
-    headers = ["Tecnico"] + day_labels
-
     shift_label = {
-        SHIFT_T1: "T1",
-        SHIFT_T2: "T2",
-        SHIFT_DOMINGO: "DOM",
-        SHIFT_DESCANSO: "DESC",
+        SHIFT_T1: "T1", SHIFT_T2: "T2",
+        SHIFT_DOMINGO: "DOM", SHIFT_DESCANSO: "DESC",
     }
+
+    day_headers = [f"{d.day:02d}/{d.month:02d}" for d in dates]
+    headers = ["Tecnico"] + day_headers
 
     rows = []
     for t in techs:
@@ -182,37 +169,29 @@ def sync_month(year, month):
             if da is None:
                 row.append("")
             else:
-                label = shift_label.get(da.shift, da.shift or "")
-                if da.is_ticket:
-                    label += "+TK"
                 if da.is_sunday_holiday:
                     label = "DOM" if d.weekday() == 6 else "FEST"
+                else:
+                    label = shift_label.get(da.shift, da.shift or "")
+                if da.is_ticket:
+                    label += "+TK"
                 row.append(label)
         rows.append(row)
 
-    ok = _write_rows(ws, headers, rows)
-    log.info("sheets_sync: %s synced (%d techs, %d days)", sheet_name, len(techs), n_days)
-    return ok
+    result = _call("sync_month", {
+        "year": year, "month": month,
+        "headers": headers, "rows": rows
+    })
+    log.info("sheets_sync: Horario_%d_%02d -> %s", year, month, result)
+    return result.get("ok", False)
 
 
 # ---------------------------------------------------------------
-# SYNC: DOMINICALES (dom/fest per tech per month)
+# SYNC: DOMINICALES
 # ---------------------------------------------------------------
 def sync_dominicales(year, month):
-    """Push sunday/festivo stats to 'Dominicales' sheet (append mode)."""
-    client = _get_client()
-    if not client:
-        return False
-    ss = _get_spreadsheet(client)
-    if not ss:
-        return False
-
     import calendar
-    from models import Technician, DayAssignment, SHIFT_DOMINGO
-
-    ws = _get_or_create_sheet(ss, "Dominicales")
-    if not ws:
-        return False
+    from models import Technician, DayAssignment
 
     _, n_days = calendar.monthrange(year, month)
     month_start = date(year, month, 1)
@@ -229,58 +208,33 @@ def sync_dominicales(year, month):
         tid = da.technician_id
         if tid not in stats:
             t = Technician.query.get(tid)
-            stats[tid] = {
-                'name': t.name if t else '?',
-                'sundays': 0, 'festivos': 0
-            }
+            stats[tid] = {"name": t.name if t else "?",
+                          "sundays": 0, "festivos": 0}
         if da.date.weekday() == 6:
-            stats[tid]['sundays'] += 1
+            stats[tid]["sundays"] += 1
         else:
-            stats[tid]['festivos'] += 1
-
-    # Check if headers exist (first row)
-    try:
-        first = ws.row_values(1)
-    except Exception:
-        first = []
-
-    if not first:
-        ws.append_row(
-            ["Anio", "Mes", "Tecnico", "Domingos", "Festivos", "Total", "Sync"],
-            value_input_option="USER_ENTERED"
-        )
+            stats[tid]["festivos"] += 1
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-    for tid, s in stats.items():
-        _append_row(ws, [
-            year, month, s['name'],
-            s['sundays'], s['festivos'],
-            s['sundays'] + s['festivos'],
-            now_str,
-        ])
+    headers = ["Anio", "Mes", "Tecnico", "Domingos", "Festivos", "Total", "Sync"]
+    rows = [
+        [year, month, s["name"],
+         s["sundays"], s["festivos"],
+         s["sundays"] + s["festivos"], now_str]
+        for s in stats.values()
+    ]
 
-    log.info("sheets_sync: Dominicales appended %d rows for %d-%02d", len(stats), year, month)
-    return True
+    result = _call("sync_dominicales", {"headers": headers, "rows": rows})
+    log.info("sheets_sync: Dominicales -> %s", result)
+    return result.get("ok", False)
 
 
 # ---------------------------------------------------------------
 # SYNC: NOVELTIES
 # ---------------------------------------------------------------
 def sync_novelties(year, month):
-    """Push novelties (active during the month) to 'Novedades' sheet."""
-    client = _get_client()
-    if not client:
-        return False
-    ss = _get_spreadsheet(client)
-    if not ss:
-        return False
-
     import calendar
     from models import Novelty, Technician
-
-    ws = _get_or_create_sheet(ss, "Novedades")
-    if not ws:
-        return False
 
     _, n_days = calendar.monthrange(year, month)
     month_start = date(year, month, 1)
@@ -291,7 +245,8 @@ def sync_novelties(year, month):
                     Novelty.date_end >= month_start)
             .order_by(Novelty.date_start).all())
 
-    headers = ["Anio", "Mes", "Tecnico", "Tipo", "Fecha_Inicio", "Fecha_Fin", "Nota"]
+    headers = ["Anio", "Mes", "Tecnico", "Tipo",
+               "Fecha_Inicio", "Fecha_Fin", "Nota"]
     rows = []
     for n in novs:
         t = Technician.query.get(n.technician_id)
@@ -304,73 +259,36 @@ def sync_novelties(year, month):
             n.note or "",
         ])
 
-    ok = _write_rows(ws, headers, rows)
-    log.info("sheets_sync: Novedades synced (%d rows)", len(rows))
-    return ok
+    result = _call("sync_novelties", {"headers": headers, "rows": rows})
+    log.info("sheets_sync: Novedades -> %s", result)
+    return result.get("ok", False)
 
 
 # ---------------------------------------------------------------
-# SYNC: LOGS
-# ---------------------------------------------------------------
-def sync_log(action, detail=""):
-    """Append a single log entry to 'Logs' sheet."""
-    client = _get_client()
-    if not client:
-        return False
-    ss = _get_spreadsheet(client)
-    if not ss:
-        return False
-
-    ws = _get_or_create_sheet(ss, "Logs")
-    if not ws:
-        return False
-
-    try:
-        first = ws.row_values(1)
-    except Exception:
-        first = []
-    if not first:
-        ws.append_row(
-            ["Timestamp", "Accion", "Detalle"],
-            value_input_option="USER_ENTERED"
-        )
-
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return _append_row(ws, [now_str, action, detail])
-
-
-# ---------------------------------------------------------------
-# SYNC: CONFIGURATION
+# SYNC: CONFIG
 # ---------------------------------------------------------------
 def sync_config():
-    """Push current Config keys to 'Configuracion' sheet."""
-    client = _get_client()
-    if not client:
-        return False
-    ss = _get_spreadsheet(client)
-    if not ss:
-        return False
-
     from models import Config
-
-    ws = _get_or_create_sheet(ss, "Configuracion")
-    if not ws:
-        return False
-
     cfgs = Config.query.order_by(Config.key).all()
-    headers = ["Clave", "Valor", "Descripcion"]
     desc_map = {
-        "MIN_T2_DAILY":    "Minimo tecnicos T2 por dia",
-        "TICKET_COUNT":    "Tecnicos en turno tickets por semana",
-        "sunday_workers":  "Tecnicos por domingo/festivo (default 6)",
+        "MIN_T2_DAILY":   "Minimo tecnicos T2 por dia",
+        "TICKET_COUNT":   "Tecnicos en turno tickets por semana",
+        "sunday_workers": "Tecnicos por domingo/festivo (default 6)",
     }
-    rows = []
-    for c in cfgs:
-        rows.append([c.key, c.value, desc_map.get(c.key, "")])
+    headers = ["Clave", "Valor", "Descripcion"]
+    rows = [[c.key, c.value, desc_map.get(c.key, "")] for c in cfgs]
+    result = _call("sync_config", {"headers": headers, "rows": rows})
+    log.info("sheets_sync: Config -> %s", result)
+    return result.get("ok", False)
 
-    ok = _write_rows(ws, headers, rows)
-    log.info("sheets_sync: Configuracion synced")
-    return ok
+
+# ---------------------------------------------------------------
+# SYNC: LOG
+# ---------------------------------------------------------------
+def sync_log(action, detail=""):
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result = _call("append_log", {"row": [now_str, action, detail]})
+    return result.get("ok", False)
 
 
 # ---------------------------------------------------------------
@@ -378,12 +296,11 @@ def sync_config():
 # ---------------------------------------------------------------
 def sync_all(year, month):
     """
-    Run full sync for a given year/month.
-    Called automatically after generate_month().
+    Full sync for a given year/month. Called after generate_month().
     Returns dict with per-module results.
     """
     if not is_configured():
-        log.info("sheets_sync: GOOGLE_CREDENTIALS_JSON not set, skipping sync")
+        log.info("sheets_sync: APPS_SCRIPT_URL not set, skipping")
         return {"configured": False}
 
     results = {"configured": True}
@@ -392,11 +309,10 @@ def sync_all(year, month):
     results["dominicales"] = sync_dominicales(year, month)
     results["novelties"]   = sync_novelties(year, month)
     results["config"]      = sync_config()
-    results["log"]         = sync_log(
-        "sync_all",
-        f"Full sync {year}-{month:02d}: " +
-        ", ".join(f"{k}={'OK' if v else 'FAIL'}" for k, v in results.items()
-                  if k != "configured")
+    summary = ", ".join(
+        f"{k}={'OK' if v else 'FAIL'}"
+        for k, v in results.items() if k != "configured"
     )
-    log.info("sheets_sync: sync_all done for %d-%02d: %s", year, month, results)
+    results["log"] = sync_log("sync_all", f"{year}-{month:02d}: {summary}")
+    log.info("sheets_sync: sync_all done %d-%02d: %s", year, month, results)
     return results
