@@ -235,26 +235,62 @@ def _ticket_score(tech, history):
     return float(history["ticket_weeks"]) * 10.0
 
 
-def _sunday_score(tech, history, d=None, month_ctx=None):
+def _get_sunday_workers_count():
+    """Return configured number of techs per sunday/festivo (default 6)."""
+    return get_config_int('sunday_workers', 6)
+
+
+def _get_window_context(d, days=14):
     """
-    Score for assigning tech to a special day.
-    d: the date (sunday vs festivo distinction)
-    month_ctx: {tech_id: {sundays, festivos}} for current month
+    Rolling window: how many special days (dom/fest) each tech worked
+    in the [d-days, d) range. Used to enforce short-term rotation rest.
+    Returns {tech_id: {'count': N}}.
+    """
+    window_start = d - timedelta(days=days)
+    das = (DayAssignment.query
+           .filter(DayAssignment.date >= window_start,
+                   DayAssignment.date < d,
+                   DayAssignment.is_sunday_holiday == True)
+           .all())
+    ctx = {}
+    for da in das:
+        tid = da.technician_id
+        if tid not in ctx:
+            ctx[tid] = {'count': 0}
+        ctx[tid]['count'] += 1
+    return ctx
+
+
+def _sunday_score(tech, history, d=None, month_ctx=None, window_ctx=None):
+    """
+    Score for assigning tech to a special day (sunday or festivo).
     Lower score = higher priority (picked first).
+
+    Scoring layers:
+      1. All-time cumulative (sundays field = dom + fest combined)
+      2. Monthly balance: penalise same-type repetition heavily
+      3. Cross-type penalty: penalise dom after fest and vice-versa
+      4. 14-day window: strongest short-term rest enforcement
     """
     if tech.no_sundays:
         return 9999.0
     if history["consecutive_sundays"] >= 1:
         return 8888.0
+    # Layer 1: all-time load (dom+fest unified)
     score = float(history["sundays"]) * 10.0
     if d is not None and month_ctx is not None:
         ctx = month_ctx.get(tech.id, {'sundays': 0, 'festivos': 0})
-        if d.weekday() == 6:        # Assigning a sunday
-            score += ctx['sundays']  * 50.0   # Already did sunday this month
-            score += ctx['festivos'] * 30.0   # Already did festivo this month
-        else:                        # Assigning a festivo
-            score += ctx['festivos'] * 50.0   # Already did festivo this month
-            score += ctx['sundays']  * 30.0   # Already did sunday this month
+        is_sunday = (d.weekday() == 6)
+        if is_sunday:
+            score += ctx['sundays']  * 60.0   # same type (dom) this month
+            score += ctx['festivos'] * 35.0   # cross type (fest) this month
+        else:
+            score += ctx['festivos'] * 60.0   # same type (fest) this month
+            score += ctx['sundays']  * 35.0   # cross type (dom) this month
+    # Layer 3: 14-day rolling window (strongest penalty)
+    if d is not None and window_ctx is not None:
+        wctx = window_ctx.get(tech.id, {'count': 0})
+        score += wctx['count'] * 80.0
     return score
 
 
@@ -428,8 +464,10 @@ def generate_week(week_start, force_regenerate=False,
                         if not t.no_sundays and novelties_map[t.id].get(sd) is None]
             if eligible:
                 warnings.append(f"Dia {sd.day}: sin restricciones (fallback 2)")
-        eligible.sort(key=lambda t: _sunday_score(t, histories[t.id], sd, month_ctx))
-        count = max(1, len(eligible) // 8)
+        window_ctx = _get_window_context(sd)
+        eligible.sort(key=lambda t: _sunday_score(t, histories[t.id], sd, month_ctx, window_ctx))
+        n_workers = _get_sunday_workers_count()
+        count = min(n_workers, max(1, len(eligible)))
         sunday_assignments[sd] = [t.id for t in eligible[:count]]
 
     # --- Descanso post-domingo (v6) ---

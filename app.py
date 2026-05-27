@@ -9,6 +9,11 @@ from models import (db, Technician, WeekSchedule, DayAssignment, Novelty,
                     MonthSchedule,
                     SHIFT_T1, SHIFT_T2, SHIFT_DOMINGO, SHIFT_DESCANSO,
                     ALL_SHIFTS, SHIFT_LABELS, SHIFT_COLORS, NOVEDADES)
+try:
+    import sheets_sync as _sheets_sync
+except ImportError:
+    _sheets_sync = None
+
 from scheduler import (generate_week, generate_month, apply_novelty_range,
                        get_week_stats, get_month_stats, get_month_days,
                        get_month_mondays, is_sunday_or_holiday,
@@ -171,6 +176,8 @@ def index():
         key=lambda x: x['total'], reverse=True
     )
 
+    sheets_enabled = _sheets_sync.is_configured() if _sheets_sync else False
+
     return render_template("index.html",
         today=today, week=week, monday=monday, ms=ms,
         total_techs=total_techs, total_months=total_months,
@@ -179,7 +186,8 @@ def index():
         recent_months=recent_months, recent_audit=recent_audit,
         chart_labels=chart_labels, chart_t2=chart_t2,
         month_stats=month_stats,
-        tech_special_list=tech_special_list)
+        tech_special_list=tech_special_list,
+        sheets_enabled=sheets_enabled)
 
 
 # ---------------------------------------------------------------
@@ -346,6 +354,12 @@ def generate_month_view():
                          f"Semanas={result['weeks_generated']}, "
                          f"T2 total={result['total_t2']}")
             db.session.commit()
+            # Google Sheets auto-sync (non-blocking)
+            if _sheets_sync:
+                try:
+                    _sheets_sync.sync_all(yr, mo)
+                except Exception as _se:
+                    app.logger.warning("sheets_sync error: %s", _se)
 
             for w in result.get("warnings", []):
                 flash(f"Aviso: {w}", "warning")
@@ -884,6 +898,36 @@ def history():
     hist_data.sort(key=lambda x: x["total_t2"], reverse=True)
     return render_template("history.html", hist_data=hist_data)
 
+
+
+# ---------------------------------------------------------------
+# GOOGLE SHEETS MANUAL SYNC
+# ---------------------------------------------------------------
+@app.route("/api/sync-sheets/<int:year>/<int:month>", methods=["POST"])
+def api_sync_sheets(year, month):
+    if not _sheets_sync:
+        return jsonify({"ok": False, "error": "gspread not installed"}), 503
+    if not _sheets_sync.is_configured():
+        return jsonify({"ok": False, "error": "GOOGLE_CREDENTIALS_JSON not set"}), 503
+    try:
+        results = _sheets_sync.sync_all(year, month)
+        AuditLog.log("month", None, "sheets_sync",
+                     f"Manual sync {year}-{month:02d}: ok")
+        db.session.commit()
+        return jsonify({"ok": True, "results": results})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+
+@app.route("/api/sync-sheets/technicians", methods=["POST"])
+def api_sync_sheets_techs():
+    if not _sheets_sync or not _sheets_sync.is_configured():
+        return jsonify({"ok": False, "error": "Sheets not configured"}), 503
+    try:
+        ok = _sheets_sync.sync_technicians()
+        return jsonify({"ok": ok})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
